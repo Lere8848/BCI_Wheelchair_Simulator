@@ -1,0 +1,18 @@
+# Ignore everything
+/*
+
+# not .gitignore and README
+!.gitignore
+!README.md
+
+# with Assets
+!Assets/
+# only relevant folders in Assets
+Assets/*
+!Assets/Scripts/
+!Assets/Models/
+!Assets/Editor/
+!Assets/Materials/
+!Assets/Prefabs/
+!Assets/Resources/
+!Assets/Scenes/
