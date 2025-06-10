@@ -2,7 +2,7 @@ using UnityEngine;
 using Unity.Robotics.ROSTCPConnector;
 using RosMessageTypes.Geometry;
 
-public class WheelchairController : MonoBehaviour
+public class WheelchairControllerTest : MonoBehaviour
 {
     private ROSConnection ros;  // ROS连接实例
     public string topicName = "/cmd_vel"; // 订阅的主题名称
