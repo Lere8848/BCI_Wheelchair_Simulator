@@ -4,7 +4,7 @@ using UnityEngine;
 
 // 该脚本用于接收 ROS 的 /cmd_vel 主题消息
 // 并将其转换为轮椅轮子控制器的线速度和角速度 用于视觉效果（后续可拓展
-public class CmdCmdVelReceiver : MonoBehaviour
+public class WheelCmdVelSubscriber : MonoBehaviour
 {
     public WheelController controller;
 

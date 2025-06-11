@@ -16,3 +16,6 @@ Assets/*
 !Assets/Prefabs/
 !Assets/Resources/
 !Assets/Scenes/
+
+# ignore tmp folder in Prefabs
+Assets/Prefabs/tmp/
