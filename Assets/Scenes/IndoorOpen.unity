@@ -588,7 +588,12 @@ PrefabInstance:
       propertyPath: m_SuspensionSpring.targetPosition
       value: 0.1
       objectReference: {fileID: 0}
-    m_RemovedComponents: []
+    - target: {fileID: 5843587728655602695, guid: d84e394e4702b534dbebd46f8503e7fb, type: 3}
+      propertyPath: torqueScale
+      value: 4
+      objectReference: {fileID: 0}
+    m_RemovedComponents:
+    - {fileID: 8036213782448375679, guid: d84e394e4702b534dbebd46f8503e7fb, type: 3}
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents: []

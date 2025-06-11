@@ -15,7 +15,7 @@ public class WheelController : MonoBehaviour
     public float casterSpinFactor = 5f;       // 万向轮旋转因子
 
     [Header("Drive Parameters")]
-    public float torqueScale = 150f;          // 扭矩缩放系数
+    public float torqueScale;          // 扭矩缩放系数
     private float speed = 0f;                  // 线速度
     private float angular = 0f;                // 角速度
 
@@ -67,7 +67,7 @@ public class WheelController : MonoBehaviour
         Quaternion rot;
         collider.GetWorldPose(out pos, out rot); // 获取轮子的世界位置和旋转
         mesh.position = pos;
-        mesh.rotation = Quaternion.Euler(angle, 0, 0); // 绕X轴旋转
+        mesh.rotation = rot;
     }
 
     // 旋转万向轮（仅视觉效果）
