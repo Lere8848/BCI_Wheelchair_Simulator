@@ -490,14 +490,6 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
-    - target: {fileID: 752726684622203203, guid: 063b7141a00d8f042aeae9bc6e485d0c, type: 3}
-      propertyPath: lidarEnabled
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 752726684622203203, guid: 063b7141a00d8f042aeae9bc6e485d0c, type: 3}
-      propertyPath: ultrasonicEnabled
-      value: 0
-      objectReference: {fileID: 0}
     - target: {fileID: 2423291224402023437, guid: 063b7141a00d8f042aeae9bc6e485d0c, type: 3}
       propertyPath: m_LocalPosition.x
       value: 4.7816386

@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!1 &2590723292058727471
+--- !u!1 &3379909067792218829
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -8,45 +8,40 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 2423291224402023437}
-  - component: {fileID: 752726684622203203}
+  - component: {fileID: 8332401846308320655}
+  - component: {fileID: 2249787491092791029}
   m_Layer: 0
-  m_Name: SensorManager
+  m_Name: LoggerManager
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &2423291224402023437
+--- !u!4 &8332401846308320655
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2590723292058727471}
+  m_GameObject: {fileID: 3379909067792218829}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 4.7816386, y: -1.6614568, z: 0.906195}
+  m_LocalPosition: {x: 4.7128215, y: -1.0683436, z: 1.1588199}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &752726684622203203
+--- !u!114 &2249787491092791029
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2590723292058727471}
+  m_GameObject: {fileID: 3379909067792218829}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: de8ac732d273f1f4fa907af0254274c2, type: 3}
+  m_Script: {fileID: 11500000, guid: 58067198c90be064ebfd275c74270fe2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  lidarEnabled: 1
-  odomEnabled: 0
-  ultrasonicEnabled: 1
-  imuEnabled: 0
-  collisionEnabled: 1
-  cameraEnabled: 0
+  logFrequencyHz: 10
