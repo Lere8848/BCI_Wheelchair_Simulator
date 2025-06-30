@@ -25,6 +25,10 @@ namespace Simulator.LoggingModules
 
         public string GetHeader()
         {
+            // pos_x, pos_y, pos_z, rot_yaw, vel_x, vel_z
+            // pos_x, pos_y, pos_z: position in world coordinates
+            // rot_yaw: rotation around y-axis in degrees
+            // vel_x, vel_z: velocity in world coordinates (x and z components)
             return "pos_x,pos_y,pos_z,rot_yaw,vel_x,vel_z";
         }
 
