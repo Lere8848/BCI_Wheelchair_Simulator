@@ -8,9 +8,13 @@ public class CameraManager : MonoBehaviour
     public Camera topDownCamera;     // 俯视图（Y轴正上方）
     public Camera diagonalCamera;    // 斜视图（例如后上45度）
 
+    public TMPro.TextMeshProUGUI cameraStatusText; // UI文本显示当前视角
+
     void Start()
     {
+        // 默认切换到第三人称视角
         SwitchTo(thirdPersonCamera);
+        UpdateCameraStatus("TPV");
     }
 
     void Update()
@@ -62,4 +66,49 @@ public class CameraManager : MonoBehaviour
             }
         }
     }
+
+    // UI 
+    private void UpdateCameraStatus(string name)
+    {
+        if (cameraStatusText != null)
+            cameraStatusText.text = $"current: {name}";
+    }
+
+    // 提供给 UI 调用的方法
+    public void SwitchToView(string viewName)
+    {
+        Debug.Log("[CameraManager] UI Request to switch to view: " + viewName);
+        switch (viewName)
+        {
+            case "FPV":
+                SwitchTo(firstPersonCamera);
+                UpdateCameraStatus("FPV");
+                Debug.Log("Switched to first person view.");
+                break;
+            case "TPV":
+                SwitchTo(thirdPersonCamera);
+                UpdateCameraStatus("TPV");
+                Debug.Log("Switched to third person view.");
+                break;
+            case "SPV":
+                SwitchTo(secondPersonCamera);
+                UpdateCameraStatus("SPV");
+                Debug.Log("Switched to second person view.");
+                break;
+            case "Top":
+                SwitchTo(topDownCamera);
+                UpdateCameraStatus("TopDown");
+                Debug.Log("Switched to top-down view.");
+                break;
+            case "Diag":
+                SwitchTo(diagonalCamera);
+                UpdateCameraStatus("Diagonal");
+                Debug.Log("Switched to diagonal view.");
+                break;
+            default:
+                UpdateCameraStatus(" ");
+                break;
+        }
+    }
+
 }

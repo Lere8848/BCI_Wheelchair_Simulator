@@ -8,6 +8,14 @@ namespace Simulator.LoggingModules
         private bool collisionThisFrame = false;
         private int collisionCount = 0;
 
+        private float startTime;
+        public float ignoreInitialTime = 0.5f; // 忽略初始化阶段的碰撞
+
+        void Start()
+        {
+            startTime = Time.time;
+        }
+
         public string GetHeader()
         {
             // collision_flag: 1 if a collision occurred this frame, 0 otherwise
@@ -22,11 +30,21 @@ namespace Simulator.LoggingModules
             return $"{flag},{collisionCount}";
         }
 
-        void OnCollisionEnter(Collision collision) // 当发生碰撞时调用
+        void OnCollisionEnter(Collision collision)
         {
-            // 记录碰撞标志和次数（可加 tag 限定）
+            if (Time.time - startTime < ignoreInitialTime)
+            {
+                Debug.Log($"[CollisionLogger] Ignored startup collision with: {collision.gameObject.name}");
+                return;
+            }
+
             collisionThisFrame = true;
             collisionCount++;
+        }
+
+        public int GetCollisionCount()
+        {
+            return collisionCount;
         }
     }
 }
