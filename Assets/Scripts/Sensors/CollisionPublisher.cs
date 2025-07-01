@@ -14,10 +14,19 @@ public class CollisionPublisher : MonoBehaviour
     public float publishInterval = 0.5f; // 可以在Inspector中修改
     private float timeSinceLastPublish = 0f;
 
+    // 启动时忽略的碰撞时间（秒），避免在启动时误触发碰撞
+    public float ignoreInitialCollisionTime = 0.5f; // 可以在Inspector中修改
+    private float startTime;
+
     void Start()
     {
         ros = ROSConnection.GetOrCreateInstance();
         ros.RegisterPublisher<BoolMsg>(topicName);
+
+        // 初始化计时器
+        timeSinceLastPublish = 0f;
+        // 记录开始时间，避免在启动时误触发碰撞
+        startTime = Time.time;
     }
 
     void FixedUpdate()
@@ -43,6 +52,13 @@ public class CollisionPublisher : MonoBehaviour
 
     void OnCollisionEnter(Collision collision)
     {
+        // 如果碰撞发生在启动时的忽略时间内，则不处理
+        if (Time.time - startTime < ignoreInitialCollisionTime)
+        {
+            Debug.Log("[CollisionDetector] Ignored startup collision with: " + collision.gameObject.name);
+            return;
+        }
+
         // 发生碰撞时触发，将标志位置为True
         collisionDetected = true;
         Debug.Log("[CollisionDetector] Collision detected with: " + collision.gameObject.name);
