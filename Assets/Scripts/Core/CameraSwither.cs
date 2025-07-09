@@ -13,7 +13,7 @@ public class CameraManager : MonoBehaviour
     void Start()
     {
         // 默认切换到第三人称视角
-        SwitchTo(thirdPersonCamera);
+        SwitchTo(firstPersonCamera);
         UpdateCameraStatus("TPV");
     }
 
