@@ -17,6 +17,12 @@ Assets/*
 !Assets/Resources/
 !Assets/Scenes/
 
+# with Logs
+!Assets/Logs/
+Assets/Logs/*
+!Assets/Logs/obstacles.json
+!Assets/Logs/trajectory_20250722_162624.json
+
 # with python scripts
 !*PythonTools/
 
