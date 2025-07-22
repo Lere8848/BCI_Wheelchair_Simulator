@@ -17,5 +17,8 @@ Assets/*
 !Assets/Resources/
 !Assets/Scenes/
 
+# with python scripts
+!*PythonTools/
+
 # ignore tmp folder in Prefabs
 Assets/Prefabs/tmp/
