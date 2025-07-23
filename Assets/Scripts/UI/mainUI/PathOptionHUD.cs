@@ -14,7 +14,6 @@ public class PathOptionHUD : MonoBehaviour
 
     private int[] currentOptions = new int[3] { 1, 1, 1 };
 
-    // 停止判断阈值
     private float linearThreshold = 0.05f;
     private float angularThreshold = 0.05f;
 
@@ -24,22 +23,29 @@ public class PathOptionHUD : MonoBehaviour
     private float lastInputTime = -999f;
     private float inputTimeout = 3f;
 
+    private bool dangerStop = false;
+
     void Start()
     {
         ROSConnection.GetOrCreateInstance().Subscribe<Int8MultiArrayMsg>("/path_options", PathOptionsCallback);
         ROSConnection.GetOrCreateInstance().Subscribe<TwistMsg>("/cmd_vel", CmdVelCallback);
         ROSConnection.GetOrCreateInstance().Subscribe<Int8Msg>("/user_cmd", UserCmdCallback);
+        ROSConnection.GetOrCreateInstance().Subscribe<BoolMsg>("/danger_stop", DangerStopCallback);
 
         if (arrowPanel != null)
-            arrowPanel.SetActive(false);  // 默认隐藏
+            arrowPanel.SetActive(false);
     }
 
     void Update()
     {
         // 检查是否超时
         if (Time.time - lastInputTime > inputTimeout)
-        {
             userHasInput = false;
+
+        // 若轮椅仍在运动，但用户3秒无输入，说明local path独自运行 → 显示面板
+        if (!isStopped && !userHasInput)
+        {
+            arrowPanel.SetActive(true);
         }
     }
 
@@ -73,15 +79,25 @@ public class PathOptionHUD : MonoBehaviour
         lastInputTime = Time.time;
     }
 
+    void DangerStopCallback(BoolMsg msg)
+    {
+        dangerStop = msg.data;
+        UpdatePanelState();
+    }
+
     void UpdatePanelState()
     {
         int openCount = currentOptions[0] + currentOptions[1] + currentOptions[2];
 
-        if (arrowPanel == null) return;
+        // if (arrowPanel == null) return;
 
         bool showPanel = false;
 
-        if (isStopped)
+        if (dangerStop)
+        {
+            showPanel = true; // 危险停止时总是显示面板 (即便没有选项或一个选项)
+        }
+        else if (isStopped)
         {
             if (openCount >= 2)
                 showPanel = true; // 停止时如果有两个或更多选项打开，显示面板
