@@ -5,6 +5,7 @@ import matplotlib.transforms as transforms
 import numpy as np
 import math
 from scipy.spatial.transform import Rotation as R
+import os
 
 # ========== Utility Functions ==========
 def quaternion_to_yaw(q):
@@ -14,7 +15,7 @@ def quaternion_to_yaw(q):
     return yaw
 
 # ========== File Paths ==========
-trajectory_path = "Assets/Logs/trajectory_20250722_162624.json"
+trajectory_path = "Assets/Logs/trajectory_20250723_221745.json"
 obstacle_path = "Assets/Logs/obstacles.json"
 
 # ========== Load Trajectory ==========
@@ -128,6 +129,9 @@ ax.set_ylabel("Z")
 ax.legend()
 plt.grid(True)
 plt.tight_layout()
-plt.savefig("Assets/Logs/trajectory_plot.png")
-print("Plot saved to Assets/Logs/trajectory_plot.png")
+# Extract timestamp from trajectory path
+timestamp = os.path.basename(trajectory_path).split('_', 1)[1].split('.')[0]
+save_path = f"Assets/Logs/trajectory_plot_{timestamp}.png"
+plt.savefig(save_path)
+print(f"Plot saved to {save_path}")
 plt.show()
