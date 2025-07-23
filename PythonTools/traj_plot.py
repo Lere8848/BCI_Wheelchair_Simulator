@@ -111,8 +111,8 @@ for ob in obs_data:
     c0.set_transform(t)
 
     ax.add_patch(rect)
-    ax.add_patch(p0)
-    ax.add_patch(c0)
+    # ax.add_patch(p0)
+    # ax.add_patch(c0)
     
     # Add angle label for walls
     # if "Wall" in name:
