@@ -13,17 +13,34 @@ public class PathOptionHUD : MonoBehaviour
     public Image rightArrow;
 
     private int[] currentOptions = new int[3] { 1, 1, 1 };
+
+    // 停止判断阈值
     private float linearThreshold = 0.05f;
     private float angularThreshold = 0.05f;
-    private bool isStopped = false;
+
+    // 状态标志
+    private bool isStopped = false; // 轮椅是否停止
+    private bool userHasInput = false; // 用户是否有输入
+    private float lastInputTime = -999f;
+    private float inputTimeout = 3f;
 
     void Start()
     {
         ROSConnection.GetOrCreateInstance().Subscribe<Int8MultiArrayMsg>("/path_options", PathOptionsCallback);
         ROSConnection.GetOrCreateInstance().Subscribe<TwistMsg>("/cmd_vel", CmdVelCallback);
+        ROSConnection.GetOrCreateInstance().Subscribe<Int8Msg>("/user_cmd", UserCmdCallback);
 
         if (arrowPanel != null)
             arrowPanel.SetActive(false);  // 默认隐藏
+    }
+
+    void Update()
+    {
+        // 检查是否超时
+        if (Time.time - lastInputTime > inputTimeout)
+        {
+            userHasInput = false;
+        }
     }
 
     void CmdVelCallback(TwistMsg msg)
@@ -38,7 +55,7 @@ public class PathOptionHUD : MonoBehaviour
     void PathOptionsCallback(Int8MultiArrayMsg msg)
     {
         if (msg.data.Length < 3) return;
-        // Convert sbyte[] to int[] explicitly
+
         currentOptions[0] = msg.data[0];
         currentOptions[1] = msg.data[1];
         currentOptions[2] = msg.data[2];
@@ -50,23 +67,29 @@ public class PathOptionHUD : MonoBehaviour
         UpdatePanelState();
     }
 
+    void UserCmdCallback(Int8Msg msg)
+    {
+        userHasInput = true;
+        lastInputTime = Time.time;
+    }
+
     void UpdatePanelState()
     {
         int openCount = currentOptions[0] + currentOptions[1] + currentOptions[2];
 
         if (arrowPanel == null) return;
 
-        // 判断是否显示整个面板
-        // 如果是当“需要用户输入的时候”即（3s内无用户输入，出现障碍，出现岔路）的时候才会出现
-        // 即：/cmd_vel 速度为 0  【这是ros2端的一个设置 当碰到障碍或岔路的时候就停下来】
-        // 且 /path_options 中可通方向数 ≥2
-        // 这样似乎存在一个问题：如果在一个只能右转的拐角处，/cmd_vel 速度为 0，但 /path_options 中可通方向数为1，那么面板仍然会显示
-        // if (isStopped && openCount >= 2)
+        bool showPanel = false;
 
         if (isStopped)
-            arrowPanel.SetActive(true);
-        else
-            arrowPanel.SetActive(false);
+        {
+            if (openCount >= 2)
+                showPanel = true; // 停止时如果有两个或更多选项打开，显示面板
+            else if (openCount == 1 && !userHasInput) 
+                showPanel = true; // 停止时如果只有一个选项打开且没有用户输入，显示面板
+        } // 否则不会唐突显示ui
+
+        arrowPanel.SetActive(showPanel);
     }
 
     void SetArrowColor(Image arrow, int status)
