@@ -6,6 +6,7 @@ import numpy as np
 import math
 from scipy.spatial.transform import Rotation as R
 import os
+import csv
 
 # ========== Utility Functions ==========
 def quaternion_to_yaw(q):
@@ -15,14 +16,40 @@ def quaternion_to_yaw(q):
     return yaw
 
 # ========== File Paths ==========
-trajectory_path = "Assets/Logs/trajectory_20250723_221745.json"
+trajectory_path = "Assets/Logs/trajectory_20250729_143310.json"
 obstacle_path = "Assets/Logs/obstacles.json"
+collision_log_path = "Assets/Logs/log_20250729_143225.csv"
 
 # ========== Load Trajectory ==========
 with open(trajectory_path, 'r') as f:
     traj_data = json.load(f)["points"]
 
 positions = np.array([[p["position"]["x"], p["position"]["z"]] for p in traj_data])
+
+# ========== Load Collision Data ==========
+def load_collision_data(csv_path):
+    """Load collision data from CSV log file and extract positions where collisions occurred"""
+    collision_positions = []
+    
+    try:
+        with open(csv_path, 'r') as f:
+            csv_reader = csv.DictReader(f)
+            for row in csv_reader:
+                # Check if this row indicates a new collision (collision_flag = 1)
+                if row["collision_flag"] == "1":
+                    # Extract position data
+                    x = float(row["pos_x"])
+                    z = float(row["pos_z"])
+                    collision_positions.append((x, z))
+                    print(f"Collision detected at position ({x}, {z})")
+    except Exception as e:
+        print(f"Error loading collision data: {e}")
+    
+    return collision_positions
+
+# Load collision positions
+collision_positions = load_collision_data(collision_log_path)
+print(f"Found {len(collision_positions)} collision points")
 
 # ========== Load Obstacles ==========
 with open(obstacle_path, 'r') as f:
@@ -42,7 +69,7 @@ for i in range(0, len(traj_data), 10):
     yaw = quaternion_to_yaw(p["rotation"])
     dx = 0.3 * math.sin(math.radians(yaw))
     dz = 0.3 * math.cos(math.radians(yaw))
-    ax.arrow(x, z, dx, dz, head_width=0.15, head_length=0.15, fc='red', ec='red')
+    ax.arrow(x, z, dx, dz, head_width=0.15, head_length=0.15, fc='blue', ec='blue')
 
 # ========== Draw Obstacles ==========
 for ob in obs_data:
@@ -122,11 +149,27 @@ for ob in obs_data:
     #             color='black', weight='bold')
 
 
+# ========== Mark Collision Points ==========
+if collision_positions:
+    # Convert collision positions to numpy array for easier plotting
+    collision_points = np.array(collision_positions)
+    
+    # Plot collision points with red X markers
+    ax.scatter(collision_points[:, 0], collision_points[:, 1], 
+               c='red', marker='x', s=100, linewidth=2, 
+               label='Collision Points', zorder=10)  # Higher zorder to appear on top
+    
+    # Add collision count to the legend
+    ax.legend([plt.Line2D([0], [0], color='gold', lw=2), 
+               plt.Line2D([0], [0], marker='x', color='red', markersize=10, linestyle='')],
+              ['Trajectory', f'Collisions ({len(collision_positions)})'])
+else:
+    ax.legend()
+
 # ========== Plot Settings ==========
 ax.set_title("Wheelchair Topdown Trajectory and Obstacles")
 ax.set_xlabel("X")
 ax.set_ylabel("Z")
-ax.legend()
 plt.grid(True)
 plt.tight_layout()
 # Extract timestamp from trajectory path
