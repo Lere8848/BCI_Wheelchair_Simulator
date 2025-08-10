@@ -8,17 +8,17 @@ public class AttractorVisualizer : MonoBehaviour
     public Transform wheelchairTransform;  // 轮椅的Transform引用
     public float visualScale = 1.0f;       // 可视化缩放系数
 
-    [Header("Animation Settings")]
-    public bool enablePulseAnimation = true;     // 启用脉冲动画
-    public float pulseSpeed = 2.0f;             // 脉冲速度
-    public float pulseScale = 0.2f;             // 脉冲幅度
+    // [Header("Animation Settings")]
+    // public bool enablePulseAnimation = true;     // 启用脉冲动画
+    // public float pulseSpeed = 2.0f;             // 脉冲速度
+    // public float pulseScale = 0.2f;             // 脉冲幅度
 
     private GameObject leftAttractor;    // 左方向吸引子（蓝色）
     private GameObject forwardAttractor; // 前方向吸引子（红色）
     private GameObject rightAttractor;   // 右方向吸引子（绿色）
     
     private Vector3 originalScale;
-    private Vector3 arrowStartPosition = new Vector3(0, 0, 0.4f); // 箭头起始位置（相对于轮椅）
+    public Vector3 arrowStartPosition = new Vector3(0, 0, 1f); // 箭头起始位置（相对于轮椅）
 
     void Start()
     {
@@ -84,11 +84,9 @@ public class AttractorVisualizer : MonoBehaviour
             feather.transform.localRotation = Quaternion.Euler(0, 0, angle);
         }
         
-        // 设置材质和颜色
+        // 设置简化材质和颜色
         Material arrowMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit"));
         arrowMaterial.color = color;
-        arrowMaterial.SetFloat("_Metallic", 0.3f);
-        arrowMaterial.SetFloat("_Smoothness", 0.8f);
         
         // 为所有子组件应用材质并移除物理组件
         Component[] renderers = arrowContainer.GetComponentsInChildren<Renderer>();
