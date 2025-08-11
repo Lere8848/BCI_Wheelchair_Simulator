@@ -55,34 +55,85 @@ public class AttractorVisualizer : MonoBehaviour
         shaft.transform.SetParent(arrowContainer.transform);
         shaft.transform.localPosition = Vector3.zero;
         shaft.transform.localRotation = Quaternion.Euler(90, 0, 0); // 旋转90度使其沿Z轴
-        shaft.transform.localScale = new Vector3(0.03f, 0.5f, 0.03f); // 稍微粗一些的圆柱体
+        shaft.transform.localScale = new Vector3(0.03f, 0.4f, 0.3f); // 稍微粗一些的圆柱体
         
-        // 创建箭头头部（圆锥体形状 - 使用拉伸的球体模拟）
-        GameObject arrowHead = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        arrowHead.name = name + "_Head";
+        
+        // 创建箭头头部（圆锥体）
+        GameObject arrowHead = new GameObject(name + "_Head");
         arrowHead.transform.SetParent(arrowContainer.transform);
-        arrowHead.transform.localPosition = new Vector3(0, 0, 1.0f); // 沿Z轴放置
-        arrowHead.transform.localScale = new Vector3(0.1f, 0.1f, 0.15f); // Z轴拉伸成锥形
+        arrowHead.transform.localPosition = new Vector3(0, 0, 0.6f); // 沿Z轴放置
         
-        // 创建箭头尾翼（3个小的立方体）
-        for (int i = 0; i < 3; i++)
+        // 手动创建圆锥体mesh
+        MeshFilter meshFilter = arrowHead.AddComponent<MeshFilter>();
+        MeshRenderer meshRenderer = arrowHead.AddComponent<MeshRenderer>();
+        
+        // 创建圆锥体mesh
+        Mesh coneMesh = new Mesh();
+        int segments = 16; // 圆锥底面的分段数
+        float radius = 0.7f; // 底面半径
+        float height = 1.1f; // 圆锥高度
+        
+        Vector3[] vertices = new Vector3[segments + 2]; // 底面顶点 + 顶点 + 底面中心
+        int[] triangles = new int[segments * 6]; // 底面三角形 + 侧面三角形
+        
+        // 顶点
+        vertices[0] = new Vector3(0, 0, height); // 圆锥顶点
+        vertices[1] = new Vector3(0, 0, -0.4f); // 底面中心
+        
+        // 底面顶点
+        for (int i = 0; i < segments; i++)
         {
-            GameObject feather = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            feather.name = name + "_Feather" + i;
-            feather.transform.SetParent(arrowContainer.transform);
-            
-            // 计算尾翼位置和旋转
-            float angle = i * 120f; // 每120度放置一个尾翼
-            Vector3 offset = new Vector3(
-                Mathf.Sin(angle * Mathf.Deg2Rad) * 0.04f,
-                Mathf.Cos(angle * Mathf.Deg2Rad) * 0.04f,
-                -0.8f // 箭杆后端（Z轴负方向）
-            );
-            
-            feather.transform.localPosition = offset;
-            feather.transform.localScale = new Vector3(0.02f, 0.006f, 0.1f); // 调整为Z轴方向的薄片
-            feather.transform.localRotation = Quaternion.Euler(0, 0, angle);
+            float angle = i * 2 * Mathf.PI / segments;
+            vertices[i + 2] = new Vector3(Mathf.Cos(angle) * radius, Mathf.Sin(angle) * radius, 0);
         }
+        
+        // 三角形索引
+        int triIndex = 0;
+        
+        // 侧面三角形
+        for (int i = 0; i < segments; i++)
+        {
+            int next = (i + 1) % segments;
+            triangles[triIndex] = 0; // 顶点
+            triangles[triIndex + 1] = i + 2;
+            triangles[triIndex + 2] = next + 2;
+            triIndex += 3;
+        }
+        
+        // 底面三角形
+        for (int i = 0; i < segments; i++)
+        {
+            int next = (i + 1) % segments;
+            triangles[triIndex] = 1; // 底面中心
+            triangles[triIndex + 1] = next + 2;
+            triangles[triIndex + 2] = i + 2;
+            triIndex += 3;
+        }
+        
+        coneMesh.vertices = vertices;
+        coneMesh.triangles = triangles;
+        coneMesh.RecalculateNormals();
+        meshFilter.mesh = coneMesh;
+        
+        // // 创建箭头尾翼（3个小的立方体）
+        // for (int i = 0; i < 3; i++)
+        // {
+        //     GameObject feather = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        //     feather.name = name + "_Feather" + i;
+        //     feather.transform.SetParent(arrowContainer.transform);
+            
+        //     // 计算尾翼位置和旋转
+        //     float angle = i * 120f; // 每120度放置一个尾翼
+        //     Vector3 offset = new Vector3(
+        //         Mathf.Sin(angle * Mathf.Deg2Rad) * 0.04f,
+        //         Mathf.Cos(angle * Mathf.Deg2Rad) * 0.04f,
+        //         -0.8f // 箭杆后端（Z轴负方向）
+        //     );
+            
+        //     feather.transform.localPosition = offset;
+        //     feather.transform.localScale = new Vector3(0.02f, 0.006f, 0.1f); // 调整为Z轴方向的薄片
+        //     feather.transform.localRotation = Quaternion.Euler(0, 0, angle);
+        // }
         
         // 设置简化材质和颜色
         Material arrowMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit"));
@@ -217,7 +268,7 @@ public class AttractorVisualizer : MonoBehaviour
         // if (rightAttractor.activeInHierarchy) rightAttractor.transform.Rotate(0, 0, rotSpeed, Space.Self);
     // }
 
-    // 脉冲动画方法 - 已注释掉
+    // 脉冲动画方法
     // void ApplyPulseToArrow(GameObject arrow, float pulseValue)
     // {
     //     if (arrow == null || !arrow.activeInHierarchy) return;
