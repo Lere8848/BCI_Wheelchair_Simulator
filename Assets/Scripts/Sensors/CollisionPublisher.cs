@@ -10,12 +10,12 @@ public class CollisionPublisher : MonoBehaviour
     private ROSConnection ros;
     private bool collisionDetected = false;
 
-    // 发布间隔（秒），比如每0.5秒发布一次
-    public float publishInterval = 0.5f; // 可以在Inspector中修改
+    // Publish interval (seconds), e.g., publish once every 0.5 seconds
+    public float publishInterval = 0.5f; // Can be modified in Inspector
     private float timeSinceLastPublish = 0f;
 
-    // 启动时忽略的碰撞时间（秒），避免在启动时误触发碰撞
-    public float ignoreInitialCollisionTime = 0.5f; // 可以在Inspector中修改
+    // Collision time to ignore at startup (seconds), to avoid false collision triggers during startup
+    public float ignoreInitialCollisionTime = 0.5f; // Can be modified in Inspector
     private float startTime;
 
     void Start()
@@ -23,43 +23,43 @@ public class CollisionPublisher : MonoBehaviour
         ros = ROSConnection.GetOrCreateInstance();
         ros.RegisterPublisher<BoolMsg>(topicName);
 
-        // 初始化计时器
+        // Initialize timer
         timeSinceLastPublish = 0f;
-        // 记录开始时间，避免在启动时误触发碰撞
+        // Record start time to avoid false collision triggers during startup
         startTime = Time.time;
     }
 
     void FixedUpdate()
     {
-        // 更新时间计数器
+        // Update time counter
         timeSinceLastPublish += Time.fixedDeltaTime;
 
-        // 到达发布间隔时才发布一次状态
+        // Only publish status when publish interval is reached
         if (timeSinceLastPublish >= publishInterval)
         {
-            // 创建消息并发布
+            // Create message and publish
             BoolMsg msg = new BoolMsg();
             msg.data = collisionDetected;
             ros.Publish(topicName, msg);
 
-            // 重置标志位，等下一次碰撞触发再置True
+            // Reset flag, wait for next collision to trigger and set to True
             collisionDetected = false;
 
-            // 重置计时器
+            // Reset timer
             timeSinceLastPublish = 0f;
         }
     }
 
     void OnCollisionEnter(Collision collision)
     {
-        // 如果碰撞发生在启动时的忽略时间内，则不处理
+        // If collision occurs within the ignore time at startup, don't process it
         if (Time.time - startTime < ignoreInitialCollisionTime)
         {
             Debug.Log("[CollisionDetector] Ignored startup collision with: " + collision.gameObject.name);
             return;
         }
 
-        // 发生碰撞时触发，将标志位置为True
+        // When collision occurs, set flag to True
         collisionDetected = true;
         Debug.Log("[CollisionDetector] Collision detected with: " + collision.gameObject.name);
     }

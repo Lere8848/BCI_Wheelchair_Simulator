@@ -22,7 +22,7 @@ public class ObstacleLogger : MonoBehaviour
     public string outputFile = "Assets/Logs/obstacles.json";
     public string obstacleTag = "ob";
 
-    void Start()  // 运行场景时自动导出
+    void Start()  // automatically export on scene start
     {
         ExportObstacles();
     }

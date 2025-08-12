@@ -7,51 +7,51 @@ using Simulator.SimUtils;
 public class OdomPublisher : MonoBehaviour
 {
     [Header("Odometry Parameters")]
-    public string topicName = "/odom"; // 发布的话题名称
-    public GameObject trackedObject;   // 需要跟踪的物体
-    public string frameId = "odom";    // 坐标系ID
-    public string childFrameId = "base_link"; // 子坐标系ID
-    public float publishHz = 10.0f;    // 发布频率（Hz）
+    public string topicName = "/odom"; // Topic name to publish
+    public GameObject trackedObject;   // Object to track
+    public string frameId = "odom";    // Frame ID
+    public string childFrameId = "base_link"; // Child frame ID
+    public float publishHz = 10.0f;    // Publishing frequency (Hz)
 
     [Header("Noise Control")]
     public bool enableNoise = false;
     public float linearNoiseStdDev = 0.02f;   // m/s
     public float angularNoiseStdDev = 0.05f;  // rad/s
 
-    private Vector3 lastPosition;      // 上一帧的位置
-    private Quaternion lastRotation;   // 上一帧的旋转
-    private Vector3 linearVelocity;    // 线速度
-    private Vector3 angularVelocity;   // 角速度
-    private float timer = 0f;          // 计时器
+    private Vector3 lastPosition;      // Last frame position
+    private Quaternion lastRotation;   // Last frame rotation
+    private Vector3 linearVelocity;    // Linear velocity
+    private Vector3 angularVelocity;   // Angular velocity
+    private float timer = 0f;          // Timer
 
-    private ROSConnection ros;         // ROS连接实例
+    private ROSConnection ros;         // ROS connection instance
 
     void Start()
     {
         if (trackedObject == null)
-            trackedObject = this.gameObject; // 如果未指定跟踪对象，则默认自身
+            trackedObject = this.gameObject; // If no tracked object specified, default to self
 
-        lastPosition = trackedObject.transform.position; // 初始化位置
-        lastRotation = trackedObject.transform.rotation; // 初始化旋转
+        lastPosition = trackedObject.transform.position; // Initialize position
+        lastRotation = trackedObject.transform.rotation; // Initialize rotation
 
-        ros = ROSConnection.GetOrCreateInstance(); // 获取或创建ROS连接
-        ros.RegisterPublisher<OdometryMsg>(topicName); // 注册话题发布者
+        ros = ROSConnection.GetOrCreateInstance(); // Get or create ROS connection
+        ros.RegisterPublisher<OdometryMsg>(topicName); // Register topic publisher
     }
 
     void Update()
     {
         timer += Time.deltaTime;
-        if (timer >= 1.0f / publishHz) // 达到发布频率时执行
+        if (timer >= 1.0f / publishHz) // Execute when publishing frequency is reached
         {
             timer = 0f;
 
-            Vector3 currentPosition = trackedObject.transform.position; // 当前帧位置
-            Quaternion currentRotation = trackedObject.transform.rotation; // 当前帧旋转
+            Vector3 currentPosition = trackedObject.transform.position; // Current frame position
+            Quaternion currentRotation = trackedObject.transform.rotation; // Current frame rotation
 
-            linearVelocity = (currentPosition - lastPosition) / Time.deltaTime; // 计算线速度
-            angularVelocity = SimUtils.CalculateAngularVelocity(lastRotation, currentRotation, Time.deltaTime); // 计算角速度
+            linearVelocity = (currentPosition - lastPosition) / Time.deltaTime; // Calculate linear velocity
+            angularVelocity = SimUtils.CalculateAngularVelocity(lastRotation, currentRotation, Time.deltaTime); // Calculate angular velocity
 
-            // 添加噪声
+            // Add noise
             if (enableNoise)
             {
                 linearVelocity += new Vector3(
@@ -67,14 +67,14 @@ public class OdomPublisher : MonoBehaviour
                 );
             }
 
-            PublishOdom(currentPosition, currentRotation, linearVelocity, angularVelocity); // 发布里程计消息
+            PublishOdom(currentPosition, currentRotation, linearVelocity, angularVelocity); // Publish odometry message
 
-            lastPosition = currentPosition; // 更新上一帧位置
-            lastRotation = currentRotation; // 更新上一帧旋转
+            lastPosition = currentPosition; // Update last frame position
+            lastRotation = currentRotation; // Update last frame rotation
         }
     }
 
-    // 发布里程计消息
+    // Publish odometry message
     void PublishOdom(Vector3 pos, Quaternion rot, Vector3 linVel, Vector3 angVel)
     {
         OdometryMsg msg = new OdometryMsg
@@ -103,6 +103,6 @@ public class OdomPublisher : MonoBehaviour
             }
         };
 
-        ros.Publish(topicName, msg); // 发布消息到ROS
+        ros.Publish(topicName, msg); // Publish message to ROS
     }
 }

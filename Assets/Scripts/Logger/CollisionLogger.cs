@@ -9,7 +9,7 @@ namespace Simulator.LoggingModules
         private int collisionCount = 0;
 
         private float startTime;
-        public float ignoreInitialTime = 0.5f; // 忽略初始化阶段的碰撞
+        public float ignoreInitialTime = 0.5f; // ignore initial collisions
 
         void Start()
         {
@@ -26,7 +26,7 @@ namespace Simulator.LoggingModules
         public string GetLogLine()
         {
             int flag = collisionThisFrame ? 1 : 0;
-            collisionThisFrame = false; // 重置状态，避免持续记录
+            collisionThisFrame = false; // reset state to avoid continuous logging
             return $"{flag},{collisionCount}";
         }
 

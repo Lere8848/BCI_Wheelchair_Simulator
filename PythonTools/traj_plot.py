@@ -16,9 +16,9 @@ def quaternion_to_yaw(q):
     return yaw
 
 # ========== File Paths ==========
-trajectory_path = "Assets/Logs/trajectory_20250729_143310.json"
+trajectory_path = "Assets/Logs/trajectory_20250806_170946.json"
 obstacle_path = "Assets/Logs/obstacles.json"
-collision_log_path = "Assets/Logs/log_20250729_143225.csv"
+collision_log_path = "Assets/Logs/log_20250806_170726.csv"
 
 # ========== Load Trajectory ==========
 with open(trajectory_path, 'r') as f:
@@ -115,7 +115,7 @@ for ob in obs_data:
 
     # Create obstacle rectangle
     rect = Rectangle((start_x, start_y), w, h, edgecolor=edge_color, facecolor=face_color, 
-                    alpha=0.5, linewidth=2)
+                    alpha=0.5, linewidth=1)
 
     # test_rect = Rectangle((0, 0), 1, 1, edgecolor='blue', facecolor='green', alpha=0.3)
     # ax.add_patch(test_rect)

@@ -12,7 +12,7 @@ public class TrajectoryPoint
 
 public class WheelchairTrajLogger : MonoBehaviour
 {
-    public float logInterval = 0.2f; // 每隔多少秒记录一次
+    public float logInterval = 0.2f; // recording interval in seconds
     public string outputFile = "trajectory.json";
 
     private List<TrajectoryPoint> trajectory = new List<TrajectoryPoint>();

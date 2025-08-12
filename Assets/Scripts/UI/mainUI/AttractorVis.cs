@@ -5,36 +5,36 @@ using RosGeometry = RosMessageTypes.Geometry;
 public class AttractorVisualizer : MonoBehaviour
 {
     [Header("Attractor Visualization Settings")]
-    public Transform wheelchairTransform;  // 轮椅的Transform引用
-    public float visualScale = 1.0f;       // 可视化缩放系数
+    public Transform wheelchairTransform;  // Wheelchair Transform reference
+    public float visualScale = 1.0f;       // Visualization scale factor
 
-    private GameObject leftAttractor;    // 左方向吸引子（蓝色）
-    private GameObject forwardAttractor; // 前方向吸引子（红色）
-    private GameObject rightAttractor;   // 右方向吸引子（绿色）
+    private GameObject leftAttractor;    // Left direction attractor (blue)
+    private GameObject forwardAttractor; // Forward direction attractor (red)
+    private GameObject rightAttractor;   // Right direction attractor (green)
     
-    // 公共访问器，供BCIFeedback使用
+    // Public accessors for BCIFeedback use
     public GameObject LeftAttractor => leftAttractor;
     public GameObject ForwardAttractor => forwardAttractor;
     public GameObject RightAttractor => rightAttractor;
     
     private Vector3 originalScale;
-    public Vector3 arrowStartPosition = new Vector3(0, 0, 1f); // 箭头起始位置（相对于轮椅）
+    public Vector3 arrowStartPosition = new Vector3(0, 0, 1f); // Arrow start position (relative to wheelchair)
 
     void Start()
     {
-        // 订阅三个ROS话题
+        // Subscribe to three ROS topics
         ROSConnection.GetOrCreateInstance().Subscribe<RosGeometry.PointMsg>("/left_attractor_pos", OnLeftAttractorReceived);
         ROSConnection.GetOrCreateInstance().Subscribe<RosGeometry.PointMsg>("/forward_attractor_pos", OnForwardAttractorReceived);
         ROSConnection.GetOrCreateInstance().Subscribe<RosGeometry.PointMsg>("/right_attractor_pos", OnRightAttractorReceived);
 
-        // 自动找到轮椅Transform
+        // Automatically find wheelchair Transform
         if (wheelchairTransform == null)
         {
             GameObject wheelchair = GameObject.Find("wheelchair") ?? GameObject.Find("Wheelchair") ?? GameObject.Find("wheelchair_pivot");
             if (wheelchair != null) wheelchairTransform = wheelchair.transform;
         }
 
-        // 创建三个吸引子箭头
+        // Create three attractor arrows
         leftAttractor = CreateAttractorArrow("LeftAttractor", Color.blue);
         forwardAttractor = CreateAttractorArrow("ForwardAttractor", Color.red);
         rightAttractor = CreateAttractorArrow("RightAttractor", Color.green);
@@ -44,20 +44,20 @@ public class AttractorVisualizer : MonoBehaviour
 
     GameObject CreateAttractorArrow(string name, Color color)
     {
-        // 创建空的父物体作为箭头容器
+        // Create empty parent object as arrow container
         GameObject arrowContainer = new GameObject(name);
         arrowContainer.transform.SetParent(wheelchairTransform);
         arrowContainer.transform.localPosition = arrowStartPosition;
         
-        // 创建箭头主体（圆柱体 - 进度条）
+        // Create arrow body (cylinder - progress bar)
         GameObject shaft = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
         shaft.name = name + "_Shaft";
         shaft.transform.SetParent(arrowContainer.transform);
         shaft.transform.localPosition = Vector3.zero;
-        shaft.transform.localRotation = Quaternion.Euler(90, 0, 0); // 旋转90度使其沿Z轴
-        shaft.transform.localScale = new Vector3(0.03f, 0.4f, 0.3f); // 稍微粗一些的圆柱体
+        shaft.transform.localRotation = Quaternion.Euler(90, 0, 0); // Rotate 90 degrees to align with Z-axis
+        shaft.transform.localScale = new Vector3(0.03f, 0.4f, 0.3f); // Slightly thicker cylinder
 
-        // 设置圆柱体材质的透明度
+        // Set cylinder material transparency
         Renderer shaftRenderer = shaft.GetComponent<Renderer>();
         Shader unlitTransparentShader = Shader.Find("Universal Render Pipeline/Unlit");
         if(unlitTransparentShader == null) 
@@ -68,43 +68,43 @@ public class AttractorVisualizer : MonoBehaviour
         var shaftMaterial = new Material(unlitTransparentShader);
         shaftMaterial.color = new Color(color.r, color.g, color.b, 0.3f);
         
-        // 正确设置URP透明材质属性
-        shaftMaterial.SetFloat("_Surface", 1); // 设置surface type为transparent
-        shaftMaterial.SetFloat("_Blend", 0); // 设置blend mode为alpha
-        shaftMaterial.SetFloat("_AlphaClip", 0); // 禁用alpha clipping
+        // Correctly set URP transparent material properties
+        shaftMaterial.SetFloat("_Surface", 1); // Set surface type to transparent
+        shaftMaterial.SetFloat("_Blend", 0); // Set blend mode to alpha
+        shaftMaterial.SetFloat("_AlphaClip", 0); // Disable alpha clipping
         shaftMaterial.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
         shaftMaterial.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-        shaftMaterial.SetFloat("_ZWrite", 0); // 禁用深度写入
+        shaftMaterial.SetFloat("_ZWrite", 0); // Disable depth writing
         shaftMaterial.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
         
-        // 启用关键字
+        // Enable keywords
         shaftMaterial.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
         shaftMaterial.EnableKeyword("_ALPHAPREMULTIPLY_ON");
         
         shaftRenderer.material = shaftMaterial;
         
-        // 创建箭头头部（圆锥体）
+        // Create arrow head (cone)
         GameObject arrowHead = new GameObject(name + "_Head");
         arrowHead.transform.SetParent(arrowContainer.transform);
-        arrowHead.transform.localPosition = new Vector3(0, 0, 0.6f); // 沿Z轴放置
+        arrowHead.transform.localPosition = new Vector3(0, 0, 0.6f); // Place along Z-axis
         
-        // 创建圆锥体mesh
+        // Create cone mesh
         MeshFilter meshFilter = arrowHead.AddComponent<MeshFilter>();
         MeshRenderer meshRenderer = arrowHead.AddComponent<MeshRenderer>();
         Mesh coneMesh = new Mesh();
 
-        int segments = 16; // 圆锥底面的分段数
-        float radius = 0.7f; // 底面半径
-        float height = 1.1f; // 圆锥高度
+        int segments = 16; // Number of segments for cone base
+        float radius = 0.7f; // Base radius
+        float height = 1.1f; // Cone height
         
-        Vector3[] vertices = new Vector3[segments + 2]; // 底面顶点 + 顶点 + 底面中心
-        int[] triangles = new int[segments * 6]; // 底面三角形 + 侧面三角形
+        Vector3[] vertices = new Vector3[segments + 2]; // Base vertices + apex + base center
+        int[] triangles = new int[segments * 6]; // Base triangles + side triangles
         
-        // 顶点
-        vertices[0] = new Vector3(0, 0, height); // 圆锥顶点
-        vertices[1] = new Vector3(0, 0, -0.2f); // 底面中心
+        // Vertices
+        vertices[0] = new Vector3(0, 0, height); // Cone apex
+        vertices[1] = new Vector3(0, 0, -0.2f); // Base center
         
-        // 底面顶点
+        // Base vertices
         for (int i = 0; i < segments; i++)
         {
             float angle = i * 2 * Mathf.PI / segments;
@@ -112,20 +112,20 @@ public class AttractorVisualizer : MonoBehaviour
         }
         
         int triIndex = 0;
-        // 侧面三角形
+        // Side triangles
         for (int i = 0; i < segments; i++)
         {
             int next = (i + 1) % segments;
-            triangles[triIndex] = 0; // 顶点
+            triangles[triIndex] = 0; // Apex
             triangles[triIndex + 1] = i + 2;
             triangles[triIndex + 2] = next + 2;
             triIndex += 3;
         }
-        // 底面三角形
+        // Base triangles
         for (int i = 0; i < segments; i++)
         {
             int next = (i + 1) % segments;
-            triangles[triIndex] = 1; // 底面中心
+            triangles[triIndex] = 1; // Base center
             triangles[triIndex + 1] = next + 2;
             triangles[triIndex + 2] = i + 2;
             triIndex += 3;
@@ -136,12 +136,12 @@ public class AttractorVisualizer : MonoBehaviour
         coneMesh.RecalculateNormals();
         meshFilter.mesh = coneMesh;
         
-        // 设置圆锥体的材质(不透明)
+        // Set cone material (opaque)
         Material headMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit"));
         headMaterial.color = color;
         meshRenderer.material = headMaterial;
         
-        // 为所有子组件应用材质并移除物理组件
+        // Apply material to all child components and remove physics components
         // Component[] renderers = arrowContainer.GetComponentsInChildren<Renderer>();
         Component[] colliders = arrowContainer.GetComponentsInChildren<Collider>();
         Component[] rigidbodies = arrowContainer.GetComponentsInChildren<Rigidbody>();
@@ -173,29 +173,29 @@ public class AttractorVisualizer : MonoBehaviour
     {
         if (attractor == null) return;
 
-        // 检查无效位置
+        // Check for invalid positions
         if (double.IsInfinity(pos.x) || double.IsInfinity(pos.y))
         {
             attractor.SetActive(false);
             return;
         }
 
-        // 计算目标位置（ROS端已完成坐标转换）
+        // Calculate target position (coordinate conversion completed on ROS side)
         Vector3 targetPos = new Vector3((float)pos.x, (float)pos.y, (float)pos.z) * visualScale;
         
-        // 设置箭头起始位置
+        // Set arrow start position
         attractor.transform.localPosition = arrowStartPosition;
         
-        // 计算从起始位置到目标位置的方向和距离
+        // Calculate direction and distance from start position to target position
         Vector3 direction = targetPos - arrowStartPosition;
         float distance = direction.magnitude;
         
-        if (distance > 0.01f) // 避免除零错误
+        if (distance > 0.01f) // Avoid division by zero error
         {
-            // 计算箭头应该指向的方向（使用Z轴作为前进方向）
+            // Calculate arrow pointing direction (using Z-axis as forward direction)
             attractor.transform.localRotation = Quaternion.LookRotation(direction.normalized, Vector3.up);
             
-            // 调整箭头长度以匹配距离
+            // Adjust arrow length to match distance
             Transform shaft = attractor.transform.Find(attractor.name + "_Shaft");
             Transform head = attractor.transform.Find(attractor.name + "_Head");
             
@@ -203,16 +203,16 @@ public class AttractorVisualizer : MonoBehaviour
             {
                 float shaftLength = distance;
                 shaft.localScale = new Vector3(0.03f, shaftLength * 0.5f, 0.03f);
-                shaft.localPosition = new Vector3(0, 0, shaftLength * 0.5f); // 沿Z轴定位
+                shaft.localPosition = new Vector3(0, 0, shaftLength * 0.5f); // Position along Z-axis
             }
             
             if (head != null)
             {
-                // 调整箭头头部位置到箭头末端（Z轴）
+                // Adjust arrow head position to arrow end (Z-axis)
                 head.localPosition = new Vector3(0, 0, distance);
-                // 根据距离调整头部大小
+                // Adjust head size based on distance
                 float headScale = Mathf.Clamp(distance * 0.1f, 0.05f, 0.2f);
-                head.localScale = new Vector3(headScale, headScale, headScale * 1.5f); // Z轴拉伸
+                head.localScale = new Vector3(headScale, headScale, headScale * 1.5f); // Z-axis stretch
             }
                         
             attractor.SetActive(true);

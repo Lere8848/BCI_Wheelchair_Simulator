@@ -20,7 +20,7 @@ namespace Simulator.LoggingModules
             return $"{lastCmdTime:F3},{lastLinearVel.x:F3},{lastLinearVel.z:F3},{lastAngularVel.y:F3}";
         }
 
-        // 外部调用：控制器每次收到 cmd_vel 后调用
+        // External call: controller calls this method whenever it receives cmd_vel
         public void RecordVelocityCommand(Vector3 linear, Vector3 angular)
         {
             lastCmdTime = Time.time;

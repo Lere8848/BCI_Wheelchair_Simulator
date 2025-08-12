@@ -9,7 +9,7 @@ public class EnableRosHudInOffice : MonoBehaviour
         var ros = ROSConnection.GetOrCreateInstance();
         ros.ShowHud = true;
 
-        // 用反射强制调用 InitializeHUD（因为是 private）
+        // Use reflection to force call InitializeHUD (because it's private)
         MethodInfo initHud = typeof(ROSConnection).GetMethod("InitializeHUD", BindingFlags.NonPublic | BindingFlags.Instance);
         initHud?.Invoke(ros, null);
     }

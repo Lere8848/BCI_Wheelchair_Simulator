@@ -4,16 +4,16 @@ using RosMessageTypes.Geometry;
 
 public class WheelchairControllerTest : MonoBehaviour
 {
-    private ROSConnection ros;  // ROS连接实例
-    public string topicName = "/cmd_vel"; // 订阅的主题名称
+    private ROSConnection ros;  // ROS connection instance
+    public string topicName = "/cmd_vel"; // subscribed topic name
 
-    public float linearScale = 1.0f;      // 线速度缩放系数
-    public float angularScale = 100.0f;   // 角速度缩放系数（角度/秒）
+    public float linearScale = 1.0f;      // linear velocity scale factor
+    public float angularScale = 100.0f;   // angular velocity scale factor (degrees/second)
 
-    private float linearVelocity = 0f;    // 当前线速度
-    private float angularVelocity = 0f;   // 当前角速度
+    private float linearVelocity = 0f;    // current linear velocity
+    private float angularVelocity = 0f;   // current angular velocity
 
-    private Rigidbody rb;                 // 刚体组件
+    private Rigidbody rb;                 // Rigidbody component
 
     void Start()
     {
@@ -30,7 +30,7 @@ public class WheelchairControllerTest : MonoBehaviour
         Debug.Log("[Wheelchair] ROS connection established. Subscribed to: " + topicName);
     }
 
-    // 回调函数：接收 /cmd_vel 的 Twist 消息
+    // Callback function: receive Twist messages from /cmd_vel
     void ReceiveVelocityCommand(TwistMsg msg)
     {
         linearVelocity = (float)msg.linear.x * linearScale;
@@ -44,11 +44,11 @@ public class WheelchairControllerTest : MonoBehaviour
         if (rb == null)
             return;
 
-        // 计算前进方向上的位移
+        // Calculate displacement in the forward direction
         Vector3 move = transform.forward * linearVelocity * Time.fixedDeltaTime;
         rb.MovePosition(rb.position + move);
 
-        // 计算绕Y轴的旋转
+        // Calculate rotation around the Y-axis
         Quaternion turn = Quaternion.Euler(0f, angularVelocity * Time.fixedDeltaTime, 0f);
         rb.MoveRotation(rb.rotation * turn);
     }

@@ -1,88 +1,88 @@
 using UnityEngine;
 
-// 轮椅轮子控制器
-// 该脚本控制轮椅的驱动轮和万向轮，处理扭矩和视觉效果
+// Wheelchair wheel controller
+// This script controls the wheelchair's drive wheels and caster wheels, handling torque and visual effects
 public class WheelController : MonoBehaviour
 {
     [Header("Drive Wheels")]
-    public WheelCollider leftWheelCollider;   // 左驱动轮碰撞体
-    public WheelCollider rightWheelCollider;  // 右驱动轮碰撞体
-    public Transform leftWheelMesh;           // 左驱动轮模型
-    public Transform rightWheelMesh;          // 右驱动轮模型
+    public WheelCollider leftWheelCollider;   // Left drive wheel collider
+    public WheelCollider rightWheelCollider;  // Right drive wheel collider
+    public Transform leftWheelMesh;           // Left drive wheel model
+    public Transform rightWheelMesh;          // Right drive wheel model
 
     [Header("Caster Wheels (Visual Only)")]
-    public Transform[] casterWheels;          // 万向轮模型（仅用于视觉效果）
-    public float casterSpinFactor = 5f;       // 万向轮旋转因子
+    public Transform[] casterWheels;          // Caster wheel models (visual effects only)
+    public float casterSpinFactor = 5f;       // Caster wheel rotation factor
 
     [Header("Drive Parameters")]
-    public float torqueScale;          // 扭矩缩放系数
-    private float speed = 0f;                  // 线速度
-    private float angular = 0f;                // 角速度
+    public float torqueScale;          // Torque scaling factor
+    private float speed = 0f;                  // Linear velocity
+    private float angular = 0f;                // Angular velocity
 
-    private Vector3 lastPosition;             // 上一帧位置
+    private Vector3 lastPosition;             // Previous frame position
 
-    // 左右驱动轮的累计视觉旋转角
+    // Accumulated visual rotation angles for left and right drive wheels
     private float leftWheelAngle = 0f;
     private float rightWheelAngle = 0f;
 
     void Start()
     {
-        lastPosition = transform.position;    // 初始化上一帧位置
+        lastPosition = transform.position;    // Initialize previous frame position
     }
 
     void FixedUpdate()
     {
-        // 差速控制：根据线速度和角速度计算左右轮扭矩
+        // Differential control: calculate left and right wheel torque based on linear and angular velocity
         float leftTorque = (speed - angular * 0.5f) * torqueScale;
         float rightTorque = (speed + angular * 0.5f) * torqueScale;
 
         leftWheelCollider.motorTorque = leftTorque;
         rightWheelCollider.motorTorque = rightTorque;
 
-        // 计算本帧前进方向的位移
+        // Calculate displacement in the forward direction for this frame
         Vector3 delta = transform.position - lastPosition;
         float forwardMove = Vector3.Dot(delta, transform.forward);
         float wheelCircumference = 2 * Mathf.PI * leftWheelCollider.radius;
         float deltaAngle = (forwardMove / wheelCircumference) * 360f;
 
-        // 累计角度（防止重复计算）
+        // Accumulate angles (prevent duplicate calculations)
         leftWheelAngle += deltaAngle;
         rightWheelAngle += deltaAngle;
 
-        // 更新驱动轮视觉效果
+        // Update drive wheel visual effects
         UpdateWheelPose(leftWheelCollider, leftWheelMesh, leftWheelAngle);
         UpdateWheelPose(rightWheelCollider, rightWheelMesh, rightWheelAngle);
 
-        // 旋转万向轮
+        // Rotate caster wheels
         RotateCasterWheels(forwardMove);
 
-        // 更新上一帧位置
+        // Update previous frame position
         lastPosition = transform.position;
     }
 
-    // 更新轮子的模型位置和旋转
+    // Update wheel model position and rotation
     void UpdateWheelPose(WheelCollider collider, Transform mesh, float angle)
     {
         Vector3 pos;
         Quaternion rot;
-        collider.GetWorldPose(out pos, out rot); // 获取轮子的世界位置和旋转
+        collider.GetWorldPose(out pos, out rot); // Get wheel's world position and rotation
         mesh.position = pos;
         mesh.rotation = rot;
     }
 
-    // 旋转万向轮（仅视觉效果）
+    // Rotate caster wheels (visual effects only)
     void RotateCasterWheels(float forwardMove)
     {
         foreach (Transform caster in casterWheels)
         {
-            caster.Rotate(Vector3.right, forwardMove * casterSpinFactor * 100f); // 旋转万向轮
+            caster.Rotate(Vector3.right, forwardMove * casterSpinFactor * 100f); // Rotate caster wheels
         }
     }
 
-    // 被 ROS 调用来更新速度
+    // Called by ROS to update velocity
     public void UpdateCmdVel(float linear, float angularZ)
     {
-        speed = linear;      // 设置线速度
-        angular = angularZ;  // 设置角速度
+        speed = linear;      // Set linear velocity
+        angular = angularZ;  // Set angular velocity
     }
 }

@@ -17,16 +17,16 @@ public class PathOptionHUD : MonoBehaviour
     private float linearThreshold = 0.05f;
     private float angularThreshold = 0.05f;
     
-    // 方向输入与路径冲突相关
-    private int userDirection = -1; // -1: 无输入, 0: 左, 1: 前, 2: 右
-    private bool isBlinking = false; // 是否正在闪烁
+    // Direction input and path conflict related
+    private int userDirection = -1; // -1: no input, 0: left, 1: forward, 2: right
+    private bool isBlinking = false; // Whether blinking
     private float blinkTimer = 0f;
-    private float blinkInterval = 0.5f; // 闪烁间隔
-    private Color blinkColor = Color.red; // 闪烁颜色
+    private float blinkInterval = 0.5f; // Blink interval
+    private Color blinkColor = Color.red; // Blink color
 
-    // 状态标志
-    private bool isStopped = false; // 轮椅是否停止
-    private bool userHasInput = false; // 用户是否有输入
+    // Status flags
+    private bool isStopped = false; // Whether wheelchair is stopped
+    private bool userHasInput = false; // Whether user has input
     private float lastInputTime = -999f;
     private float inputTimeout = 3f;
 
@@ -45,42 +45,42 @@ public class PathOptionHUD : MonoBehaviour
 
     void Update()
     {
-        // 检查是否超时
+        // Check if timeout
         if (Time.time - lastInputTime > inputTimeout)
         {
             userHasInput = false;
-            // 超时后停止闪烁
+            // Stop blinking after timeout
             if (isBlinking)
             {
                 isBlinking = false;
-                ResetArrowColors(); // 恢复正常颜色
+                ResetArrowColors(); // Restore normal colors
             }
         }
 
-        // 若轮椅仍在运动，但用户3秒无输入，说明local path独自运行 → 显示面板
+        // If wheelchair is still moving but user has no input for 3 seconds, it means local path is running independently → show panel
         if (!isStopped && !userHasInput)
         {
             arrowPanel.SetActive(true);
         }
         
-        // 处理箭头闪烁
+        // Handle arrow blinking
         if (isBlinking && userDirection >= 0 && userDirection <= 2)
         {
             blinkTimer += Time.deltaTime;
             
-            // 控制闪烁频率
+            // Control blink frequency
             if (blinkTimer % blinkInterval < blinkInterval * 0.5f)
             {
-                // 显示红色
+                // Show red color
                 BlinkDirectionArrow(userDirection, true);
             }
             else
             {
-                // 显示灰色
+                // Show gray color
                 BlinkDirectionArrow(userDirection, false);
             }
             
-            // 闪烁2秒后停止
+            // Stop blinking after 2 seconds
             if (blinkTimer > 2f)
             {
                 isBlinking = false;
@@ -91,7 +91,7 @@ public class PathOptionHUD : MonoBehaviour
 
     void CmdVelCallback(TwistMsg msg)
     {
-        // 判断是否几乎为静止（线速度和角速度都非常小）
+        // Check if wheelchair is almost stationary (both linear and angular velocities are very small)
         isStopped = Mathf.Abs((float)msg.linear.x) < linearThreshold &&
                     Mathf.Abs((float)msg.angular.z) < angularThreshold;
 
@@ -106,7 +106,7 @@ public class PathOptionHUD : MonoBehaviour
         currentOptions[1] = msg.data[1];
         currentOptions[2] = msg.data[2];
 
-        // 如果用户有当前方向输入，且该方向变为不可行，开始闪烁
+        // If user has current directional input and that direction becomes infeasible, start blinking
         if (userDirection >= 0 && userDirection <= 2 && 
             currentOptions[userDirection] == 0 && userHasInput)
         {
@@ -115,7 +115,7 @@ public class PathOptionHUD : MonoBehaviour
         }
         else if (!isBlinking)
         {
-            // 如果没有在闪烁，正常设置颜色
+            // If not blinking, set colors normally
             SetArrowColor(leftArrow, currentOptions[0]);
             SetArrowColor(forwardArrow, currentOptions[1]);
             SetArrowColor(rightArrow, currentOptions[2]);
@@ -129,16 +129,16 @@ public class PathOptionHUD : MonoBehaviour
         userHasInput = true;
         lastInputTime = Time.time;
         
-        // 记录用户输入的方向
-        // 假设 msg.data: 0 = 左, 1 = 前进, 2 = 右
+        // Record user input direction
+        // Assume msg.data: 0 = left, 1 = forward, 2 = right
         if (msg.data >= 0 && msg.data <= 2)
         {
             userDirection = msg.data;
             
-            // 检查所选方向是否可行（对应选项是否为0）
+            // Check if selected direction is feasible (corresponding option is not 0)
             if (currentOptions[userDirection] == 0)
             {
-                // 路径不可行，开始闪烁
+                // Path is not feasible, start blinking
                 isBlinking = true;
                 blinkTimer = 0f;
             }
@@ -161,17 +161,17 @@ public class PathOptionHUD : MonoBehaviour
 
         if (dangerStop)
         {
-            showPanel = true; // 危险停止时总是显示面板 (即便没有选项或一个选项)
+            showPanel = true; // Always show panel during danger stop (even if no options or only one option)
         }
         else if (isStopped)
         {
             if (openCount >= 2)
-                showPanel = true; // 停止时如果有两个或更多选项打开，显示面板
+                showPanel = true; // Show panel when stopped if two or more options are open
             else if (openCount == 1 && !userHasInput) 
-                showPanel = true; // 停止时如果只有一个选项打开且没有用户输入，显示面板
-        } // 否则不会唐突显示ui
+                showPanel = true; // Show panel when stopped if only one option is open and no user input
+        } // Otherwise don't show UI abruptly
         
-        // 当用户输入了不可行的方向时，也显示面板
+        // Also show panel when user input an infeasible direction
         if (isBlinking && userDirection >= 0 && userDirection <= 2 && currentOptions[userDirection] == 0)
         {
             showPanel = true;
@@ -186,7 +186,7 @@ public class PathOptionHUD : MonoBehaviour
         arrow.color = (status == 1) ? Color.green : Color.gray;
     }
     
-    // 根据方向使箭头闪烁
+    // Make arrow blink based on direction
     void BlinkDirectionArrow(int direction, bool isRed)
     {
         Image targetArrow = null;

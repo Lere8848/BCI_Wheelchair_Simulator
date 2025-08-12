@@ -2,17 +2,17 @@ using UnityEngine;
 
 public class CameraManager : MonoBehaviour
 {
-    public Camera firstPersonCamera; // 第一人称视角（绑定在玩家头部）
-    public Camera thirdPersonCamera; // 第三人称视角（绑定在轮椅后面）
-    public Camera secondPersonCamera; // 第二人称视角（绑定在轮椅前面）
-    public Camera topDownCamera;     // 俯视图（Y轴正上方）
-    public Camera diagonalCamera;    // 斜视图（例如后上45度）
+    public Camera firstPersonCamera; // first person view (attached to player's head)
+    public Camera thirdPersonCamera; // third person view (attached to the back of the wheelchair)
+    public Camera secondPersonCamera; // second person view (attached to the front of the wheelchair)
+    public Camera topDownCamera;     // top-down view (directly above on the Y-axis)
+    public Camera diagonalCamera;    // diagonal view (e.g. 45 degrees from back up)
 
-    public TMPro.TextMeshProUGUI cameraStatusText; // UI文本显示当前视角
+    public TMPro.TextMeshProUGUI cameraStatusText; // UI text to display current view
 
     void Start()
     {
-        // 默认切换到第三人称视角
+        // default TPV
         SwitchTo(firstPersonCamera);
         UpdateCameraStatus("TPV");
     }
@@ -46,7 +46,7 @@ public class CameraManager : MonoBehaviour
         }
     }
 
-    // 切换到指定相机，禁用其他相机，并处理Audio Listener
+    // switch to the specified camera, disable other cameras, and handle Audio Listener
     void SwitchTo(Camera target)
     {
         Camera[] allCameras = new Camera[] { firstPersonCamera, thirdPersonCamera, secondPersonCamera, topDownCamera, diagonalCamera };
@@ -57,7 +57,7 @@ public class CameraManager : MonoBehaviour
                 bool isTarget = (cam == target);
                 cam.enabled = isTarget;
 
-                // 处理Audio Listener
+                // handle Audio Listener
                 AudioListener listener = cam.GetComponent<AudioListener>();
                 if (listener != null)
                 {
@@ -74,7 +74,7 @@ public class CameraManager : MonoBehaviour
             cameraStatusText.text = $"current: {name}";
     }
 
-    // 提供给 UI 调用的方法
+    // method for UI to call
     public void SwitchToView(string viewName)
     {
         Debug.Log("[CameraManager] UI Request to switch to view: " + viewName);

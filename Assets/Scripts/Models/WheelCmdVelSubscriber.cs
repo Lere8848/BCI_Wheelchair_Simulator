@@ -2,15 +2,15 @@ using Unity.Robotics.ROSTCPConnector;
 using RosMessageTypes.Geometry;
 using UnityEngine;
 
-// 该脚本用于接收 ROS 的 /cmd_vel 主题消息
-// 并将其转换为轮椅轮子控制器的线速度和角速度 用于视觉效果（后续可拓展
+// This script subscribes to the /cmd_vel topic and updates the WheelController with the received velocity commands.
+// could be extended later
 public class WheelCmdVelSubscriber : MonoBehaviour
 {
     public WheelController controller;
 
     void Start()
     {
-        // 后期如果不用 /cmd_vel 主题，记得修改这里的订阅主题和消息格式
+        // If the /cmd_vel topic is no longer used in the future, remember to modify the subscription topic and message format here.
         ROSConnection.GetOrCreateInstance().Subscribe<TwistMsg>(
             "/cmd_vel",
             msg =>

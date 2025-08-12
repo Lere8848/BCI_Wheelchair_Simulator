@@ -9,9 +9,9 @@ public class BCIFeedback : MonoBehaviour
     public AttractorVisualizer attractorVisualizer;
 
     [Header("Progress Bar Settings")]
-    public Color leftColor = new Color(0, 0.5f, 1f, 1f);       // 浅蓝色
-    public Color forwardColor = new Color(1f, 0.3f, 0.3f, 1f); // 浅红色
-    public Color rightColor = new Color(0.3f, 1f, 0.3f, 1f);   // 浅绿色
+    public Color leftColor = new Color(0, 0.5f, 1f, 1f);       // Light blue
+    public Color forwardColor = new Color(1f, 0.3f, 0.3f, 1f); // Light red
+    public Color rightColor = new Color(0.3f, 1f, 0.3f, 1f);   // Light green
     [Range(0.01f, 0.1f)] public float diameterMultiplier = 1.05f;
     [Range(0.001f, 0.1f)] public float minHeight = 0.01f;
 
@@ -45,7 +45,7 @@ public class BCIFeedback : MonoBehaviour
             lastWheelchairPosition = attractorVisualizer.wheelchairTransform.position;
         }
 
-        // 立即创建进度条
+        // Create progress bars immediately
         CreateProgressBars();
     }
 
@@ -53,7 +53,7 @@ public class BCIFeedback : MonoBehaviour
     {
         if (progressBarsCreated) return;
 
-        // 为每个方向创建进度条并指定颜色
+        // Create progress bars for each direction with specified colors
         leftProgressBar = CreateProgressBar("LeftProgressBar", attractorVisualizer.LeftAttractor, leftColor);
         forwardProgressBar = CreateProgressBar("ForwardProgressBar", attractorVisualizer.ForwardAttractor, forwardColor);
         rightProgressBar = CreateProgressBar("RightProgressBar", attractorVisualizer.RightAttractor, rightColor);
@@ -77,27 +77,27 @@ public class BCIFeedback : MonoBehaviour
             return null;
         }
 
-        // 创建父物体来调整轴心点（固定在轮椅端）
+        // Create parent object to adjust pivot point (fixed at wheelchair end)
         GameObject parentObj = new GameObject(name + "_Parent");
         parentObj.transform.SetParent(shaft.parent, false);
         
-        // 计算轮椅端位置（圆柱体底部）
+        // Calculate wheelchair end position (cylinder bottom)
         Vector3 bottomPosition = shaft.localPosition;
-        bottomPosition.z -= shaft.localScale.y / 2; // 调整到圆柱体底部
+        bottomPosition.z -= shaft.localScale.y / 2; // Adjust to cylinder bottom
         
         parentObj.transform.localPosition = new Vector3(bottomPosition.x, bottomPosition.y, 0);
         parentObj.transform.localRotation = shaft.localRotation;
 
-        // 创建实际的进度条圆柱体
+        // Create actual progress bar cylinder
         GameObject progressBar = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
         progressBar.name = name;
         progressBar.transform.SetParent(parentObj.transform, false);
         
-        // 初始位置在父物体中心（轮椅端）
+        // Initial position at parent object center (wheelchair end)
         progressBar.transform.localPosition = Vector3.zero;
         progressBar.transform.localRotation = Quaternion.identity;
 
-        // 使用Unlit材质确保颜色不受光照影响
+        // Use Unlit material to ensure color is not affected by lighting
         Renderer renderer = progressBar.GetComponent<Renderer>();
         Shader unlitShader = Shader.Find("Unlit/Color");
         if (unlitShader == null) unlitShader = Shader.Find("Universal Render Pipeline/Unlit");
@@ -106,10 +106,10 @@ public class BCIFeedback : MonoBehaviour
         progressMaterial.color = color;
         renderer.material = progressMaterial;
 
-        // 移除碰撞体
+        // Remove collider
         Destroy(progressBar.GetComponent<Collider>());
 
-        // 初始设置为零高度
+        // Initial setting to zero height
         Vector3 shaftScale = shaft.localScale;
         progressBar.transform.localScale = new Vector3(
             shaftScale.x * diameterMultiplier + 0.02f,
@@ -133,7 +133,7 @@ public class BCIFeedback : MonoBehaviour
     {
         if (msg.data.Length < 7) return;
 
-        // 解析消息
+        // Parse message
         confLeft = msg.data[0];
         confForward = msg.data[1];
         confRight = msg.data[2];
@@ -141,13 +141,13 @@ public class BCIFeedback : MonoBehaviour
 
         Debug.Log($"Received BCI info: L={confLeft}, F={confForward}, R={confRight}, T={threshold}");
 
-        // 确保进度条已创建
+        // Ensure progress bars are created
         if (!progressBarsCreated) CreateProgressBars();
     }
 
     void OnCmdVelReceived(TwistMsg msg)
     {
-        // 检查轮椅是否在移动
+        // Check if wheelchair is moving
         bool newMoving = msg.linear.x != 0 || msg.linear.y != 0 || msg.linear.z != 0 ||
                          msg.angular.x != 0 || msg.angular.y != 0 || msg.angular.z != 0;
 
@@ -162,10 +162,10 @@ public class BCIFeedback : MonoBehaviour
     {
         if (attractorVisualizer == null) return;
 
-        // 检测轮椅实际移动
+        // Detect actual wheelchair movement
         CheckWheelchairMovement();
 
-        // 更新进度条
+        // Update progress bars
         UpdateProgressBar(leftProgressBar, confLeft, attractorVisualizer.LeftAttractor);
         UpdateProgressBar(forwardProgressBar, confForward, attractorVisualizer.ForwardAttractor);
         UpdateProgressBar(rightProgressBar, confRight, attractorVisualizer.RightAttractor);
@@ -198,7 +198,7 @@ public class BCIFeedback : MonoBehaviour
     {
         if (progressBar == null || attractor == null) return;
 
-        // 当轮椅移动时，隐藏进度条并返回
+        // When wheelchair is moving, hide progress bars and return
         if (isMoving)
         {
             if (progressBar.activeSelf)
@@ -208,49 +208,49 @@ public class BCIFeedback : MonoBehaviour
             return;
         }
 
-        // 当轮椅静止时，显示并更新进度条
+        // When wheelchair is stationary, show and update progress bars
         if (!progressBar.activeSelf)
         {
             progressBar.SetActive(true);
         }
         
-        // 获取进度条的父物体
+        // Get progress bar's parent object
         Transform parentObj = progressBar.transform.parent;
         if (parentObj == null) return;
 
-        // 重置父物体的位置回到起点
+        // Reset parent object position back to starting point
         // todo
 
         Transform shaft = attractor.transform.Find(attractor.name + "_Shaft");
         if (shaft == null) return;
 
-        // 计算进度比例 (0-1)
+        // Calculate progress ratio (0-1)
         float progress = Mathf.Clamp01(confidence / threshold);
 
-        // 获取原始箭头圆柱体的高度
+        // Get original arrow cylinder height
         float maxHeight = shaft.localScale.y;
 
-        // 更新进度条高度
+        // Update progress bar height
         float newHeight = Mathf.Lerp(minHeight, maxHeight, progress);
 
-        // 设置进度条高度
+        // Set progress bar height
         Vector3 currentScale = progressBar.transform.localScale;
         progressBar.transform.localScale = new Vector3(
             currentScale.x,
             newHeight,
             currentScale.z
         );
-        // 计算由于高度变化导致的视觉偏移量
+        // Calculate visual offset due to height change
         float heightDelta = (newHeight * 2 - minHeight) / 2;
         
-        // 调整父物体位置以保持底部固定（轮椅端）
+        // Adjust parent object position to keep bottom fixed (wheelchair end)
         parentObj.transform.localPosition = new Vector3(
             parentObj.transform.localPosition.x,
             parentObj.transform.localPosition.y,
             0
         );
 
-        // 将父物体的位置移动newheight导致的pos变化那么多的距离
+        // Move parent object position by the distance caused by new height position change
         parentObj.transform.localPosition += Vector3.forward * heightDelta;
     }
 }

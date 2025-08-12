@@ -20,7 +20,7 @@ namespace Simulator.Logging
 
         void Start()
         {
-            // 自动注册场景中所有继承了 ILoggingProvider 的模块
+            // automatically register all ILoggingProvider modules in the scene
             foreach (var provider in FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None))
             {
                 if (provider is ILoggingProvider loggingProvider)
@@ -44,9 +44,9 @@ namespace Simulator.Logging
         {
             if (isLogging) return;
 
-            // 创建日志文件路径
+            // Create log file path
             string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-            // 创建Logs目录(如果不存在) 保存在 Application.dataPath 下的 Logs 文件夹
+            // Create Logs directory (if it doesn't exist) under Application.dataPath
             // eg: Assets/Logs/log_20250624_123456.csv
             string logsDirectory = Path.Combine(Application.dataPath, "Logs");
             if (!Directory.Exists(logsDirectory))
@@ -55,7 +55,7 @@ namespace Simulator.Logging
             logFilePath = Path.Combine(logsDirectory, $"log_{timestamp}.csv");
             writer = new StreamWriter(logFilePath);
 
-            // 写入 CSV 头部
+            // Write CSV header
             List<string> headers = new List<string> { "timestamp" };
             foreach (var p in providers)
                 headers.Add(p.GetHeader());

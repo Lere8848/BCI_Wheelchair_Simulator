@@ -7,45 +7,45 @@ using Simulator.SimUtils;
 public class IMUPublisher : MonoBehaviour
 {
     [Header("IMU Sensor Parameters")]
-    public string topicName = "/imu/data"; // 发布的ROS话题名
-    public Rigidbody trackedRigidbody;     // 被追踪的刚体
-    public float publishHz = 20.0f;        // 发布频率（Hz）
+    public string topicName = "/imu/data"; // ROS topic name for publishing
+    public Rigidbody trackedRigidbody;     // Rigidbody to track
+    public float publishHz = 20.0f;        // Publishing frequency (Hz)
 
     [Header("Noise Control")]
-    public bool enableNoise = false;       // 是否启用噪声
-    public float linearNoiseStdDev = 0.1f;   // 线性加速度噪声标准差（m/s²）
-    public float angularNoiseStdDev = 0.01f; // 角速度噪声标准差（rad/s）
+    public bool enableNoise = false;       // Whether to enable noise
+    public float linearNoiseStdDev = 0.1f;   // Linear acceleration noise standard deviation (m/s²)
+    public float angularNoiseStdDev = 0.01f; // Angular velocity noise standard deviation (rad/s)
 
-    private ROSConnection ros; // ROS连接实例
-    private float timer;       // 计时器
+    private ROSConnection ros; // ROS connection instance
+    private float timer;       // Timer
 
     void Start()
     {
-        ros = ROSConnection.GetOrCreateInstance(); // 获取或创建ROS连接实例
-        ros.RegisterPublisher<ImuMsg>(topicName);  // 注册IMU消息发布者
+        ros = ROSConnection.GetOrCreateInstance(); // Get or create ROS connection instance
+        ros.RegisterPublisher<ImuMsg>(topicName);  // Register IMU message publisher
 
         if (trackedRigidbody == null)
-            trackedRigidbody = GetComponent<Rigidbody>(); // 获取刚体组件
+            trackedRigidbody = GetComponent<Rigidbody>(); // Get rigidbody component
     }
 
     void Update()
     {
-        timer += Time.deltaTime; // 累加时间
-        if (timer >= 1.0f / publishHz) // 达到发布周期
+        timer += Time.deltaTime; // Accumulate time
+        if (timer >= 1.0f / publishHz) // Reached publishing cycle
         {
             timer = 0f;
-            PublishIMU(); // 发布IMU数据
+            PublishIMU(); // Publish IMU data
         }
     }
 
-    // 发布IMU数据到ROS
+    // Publish IMU data to ROS
     void PublishIMU()
     {
-        // 计算线性加速度和角速度
+        // Calculate linear acceleration and angular velocity
         Vector3 linAcc = trackedRigidbody.linearVelocity / Time.fixedDeltaTime;
         Vector3 angVel = trackedRigidbody.angularVelocity;
 
-        // 如果启用噪声，添加高斯噪声
+        // If noise is enabled, add Gaussian noise
         if (enableNoise)
         {
             linAcc += new Vector3(
@@ -61,23 +61,22 @@ public class IMUPublisher : MonoBehaviour
             );
         }
 
-        // 构造IMU消息
+        // Construct IMU message
         ImuMsg msg = new ImuMsg
         {
             header = new RosMessageTypes.Std.HeaderMsg
             {
-                frame_id = "imu_link", // 坐标系ID
-                stamp = new RosMessageTypes.BuiltinInterfaces.TimeMsg() // 时间戳
+                frame_id = "imu_link", // Coordinate frame ID
+                stamp = new RosMessageTypes.BuiltinInterfaces.TimeMsg() // Timestamp
             },
-            orientation = new QuaternionMsg(),  // 如果需要姿态估计，可以补充
-            angular_velocity = new Vector3Msg(angVel.x, angVel.y, angVel.z), // 角速度
-            linear_acceleration = new Vector3Msg(linAcc.x, linAcc.y, linAcc.z), // 线性加速度
-            orientation_covariance = new double[9], // 姿态协方差
-            angular_velocity_covariance = new double[9], // 角速度协方差
-            linear_acceleration_covariance = new double[9] // 线性加速度协方差
+            orientation = new QuaternionMsg(),  // Can be supplemented if orientation estimation is needed
+            angular_velocity = new Vector3Msg(angVel.x, angVel.y, angVel.z), // Angular velocity
+            linear_acceleration = new Vector3Msg(linAcc.x, linAcc.y, linAcc.z), // Linear acceleration
+            orientation_covariance = new double[9], // Orientation covariance
+            angular_velocity_covariance = new double[9], // Angular velocity covariance
+            linear_acceleration_covariance = new double[9] // Linear acceleration covariance
         };
 
-        ros.Publish(topicName, msg); // 发布消息到ROS
+        ros.Publish(topicName, msg); // Publish message to ROS
     }
 }
-

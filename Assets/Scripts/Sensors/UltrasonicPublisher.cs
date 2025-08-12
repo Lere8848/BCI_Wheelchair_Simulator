@@ -7,70 +7,70 @@ public class UltrasonicPublisher : MonoBehaviour
 {
     [Header("Ultrasonic Sensor Parameters")]
     [Tooltip("May use the /ultrasonic_<id> naming format, e.g., /ultrasonic_front")]
-    public string topicName; // ROS话题名称
-    public float maxRange = 3.0f; // 最大测量距离
-    public float minRange = 0.05f; // 最小测量距离
-    public float publishHz = 10.0f; // 发布频率（Hz）
+    public string topicName; // ROS topic name
+    public float maxRange = 3.0f; // Maximum measurement range
+    public float minRange = 0.05f; // Minimum measurement range
+    public float publishHz = 10.0f; // Publishing frequency (Hz)
 
     [Header("Noise Control")]
-    public bool enableNoise = false; // 是否启用噪声
-    public float noiseStdDev = 0.01f; // 噪声标准差
+    public bool enableNoise = false; // Whether to enable noise
+    public float noiseStdDev = 0.01f; // Noise standard deviation
 
-    private ROSConnection ros; // ROS连接实例
-    private float timer = 0f; // 计时器
+    private ROSConnection ros; // ROS connection instance
+    private float timer = 0f; // Timer
 
     void Start()
     {
-        ros = ROSConnection.GetOrCreateInstance(); // 获取或创建ROS连接实例
-        ros.RegisterPublisher<RangeMsg>(topicName); // 注册话题发布者
+        ros = ROSConnection.GetOrCreateInstance(); // Get or create ROS connection instance
+        ros.RegisterPublisher<RangeMsg>(topicName); // Register topic publisher
     }
 
     void Update()
     {
-        timer += Time.deltaTime; // 更新时间
-        if (timer >= 1f / publishHz) // 到达发布周期
+        timer += Time.deltaTime; // Update time
+        if (timer >= 1f / publishHz) // Reached publishing cycle
         {
             timer = 0f;
-            PublishUltrasonic(); // 发布超声波数据
+            PublishUltrasonic(); // Publish ultrasonic data
         }
 
         // Debug.DrawRay(transform.position, transform.forward * maxRange, Color.yellow);
     }
 
-    // 发布超声波测距消息
+    // Publish ultrasonic ranging message
     void PublishUltrasonic()
     {
-        float distance = maxRange; // 默认距离为最大值
-        Ray ray = new Ray(transform.position, transform.forward); // 从传感器位置向前发射射线
+        float distance = maxRange; // Default distance is maximum value
+        Ray ray = new Ray(transform.position, transform.forward); // Cast ray forward from sensor position
 
-        if (Physics.Raycast(ray, out RaycastHit hit, maxRange)) // 检测是否有物体被射线击中
+        if (Physics.Raycast(ray, out RaycastHit hit, maxRange)) // Check if any object is hit by the ray
         {
-            distance = hit.distance; // 获取碰撞点距离
+            distance = hit.distance; // Get collision point distance
         }
 
-        if (enableNoise) // 如果启用噪声
+        if (enableNoise) // If noise is enabled
         {
-            float noise = SimUtils.GenerateGaussianNoise() * noiseStdDev; // 生成高斯噪声
-            distance = Mathf.Clamp(distance + noise, minRange, maxRange); // 限制距离在有效范围内
+            float noise = SimUtils.GenerateGaussianNoise() * noiseStdDev; // Generate Gaussian noise
+            distance = Mathf.Clamp(distance + noise, minRange, maxRange); // Limit distance within valid range
         }
 
-        // 构造Range消息
+        // Construct Range message
         RangeMsg msg = new RangeMsg
         {
             header = new RosMessageTypes.Std.HeaderMsg
             {
-                frame_id = this.gameObject.name, // 帧ID为当前物体名
-                stamp = new RosMessageTypes.BuiltinInterfaces.TimeMsg() // 时间戳
+                frame_id = this.gameObject.name, // Frame ID is current object name
+                stamp = new RosMessageTypes.BuiltinInterfaces.TimeMsg() // Timestamp
             },
-            radiation_type = RangeMsg.ULTRASOUND, // 辐射类型为超声波
-            field_of_view = 0.2f, // 视场角（可选，模拟窄束角）
-            min_range = minRange, // 最小测量距离
-            max_range = maxRange, // 最大测量距离
-            range = distance // 实际测量距离
+            radiation_type = RangeMsg.ULTRASOUND, // Radiation type is ultrasonic
+            field_of_view = 0.2f, // Field of view (optional, simulates narrow beam angle)
+            min_range = minRange, // Minimum measurement range
+            max_range = maxRange, // Maximum measurement range
+            range = distance // Actual measurement distance
         };
-        Debug.DrawRay(transform.position, transform.forward * distance, Color.cyan, 0.1f); // 在场景中绘制射线
+        Debug.DrawRay(transform.position, transform.forward * distance, Color.cyan, 0.1f); // Draw ray in scene
         // Debug.Log($"[ULTRASONIC] position: {transform.position}, direction: {transform.forward}");
 
-        ros.Publish(topicName, msg); // 发布消息到ROS
+        ros.Publish(topicName, msg); // Publish message to ROS
     }
 }

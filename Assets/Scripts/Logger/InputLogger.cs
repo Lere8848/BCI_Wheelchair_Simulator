@@ -3,9 +3,10 @@ using UnityEngine;
 using Simulator.Logging;
 
 
-// 注：input实际上是在ros2端完成的 Unity只是接收ros2来的命令进行模拟 所以 Unity端的Logger不应当包含这个
-// 但为了测试方便，还是保留了这个Logger
-// 后期应当在ros2端完成输入的记录
+// Note: Input is actually completed on the ROS2 side, Unity just receives commands from ROS2 for simulation.
+// Therefore, the Unity-side Logger should not include this.
+// However, for testing convenience, this Logger is retained.
+// In the future, input recording should be completed on the ROS2 side.
 namespace Simulator.LoggingModules
 {
     public class InputLogger : MonoBehaviour, ILoggingProvider

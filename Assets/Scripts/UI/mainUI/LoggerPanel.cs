@@ -15,7 +15,7 @@ public class LoggerControlUI : MonoBehaviour
         if (logger == null)
             Debug.LogError("LoggerManager not found in scene.");
         
-        // 初始状态
+        // Initialize logging status
         currentState = LoggingState.Idle;
         UpdateStatus();
     }
