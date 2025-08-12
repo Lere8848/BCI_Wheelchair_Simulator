@@ -77,11 +77,25 @@ public class BCIFeedback : MonoBehaviour
             return null;
         }
 
+        // 创建父物体来调整轴心点（固定在轮椅端）
+        GameObject parentObj = new GameObject(name + "_Parent");
+        parentObj.transform.SetParent(shaft.parent, false);
+        
+        // 计算轮椅端位置（圆柱体底部）
+        Vector3 bottomPosition = shaft.localPosition;
+        bottomPosition.z -= shaft.localScale.y / 2; // 调整到圆柱体底部
+        
+        parentObj.transform.localPosition = new Vector3(bottomPosition.x, bottomPosition.y, 0);
+        parentObj.transform.localRotation = shaft.localRotation;
+
+        // 创建实际的进度条圆柱体
         GameObject progressBar = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
         progressBar.name = name;
-        progressBar.transform.SetParent(shaft.parent, false);
-        progressBar.transform.localPosition = shaft.localPosition;
-        progressBar.transform.localRotation = shaft.localRotation;
+        progressBar.transform.SetParent(parentObj.transform, false);
+        
+        // 初始位置在父物体中心（轮椅端）
+        progressBar.transform.localPosition = Vector3.zero;
+        progressBar.transform.localRotation = Quaternion.identity;
 
         // 使用Unlit材质确保颜色不受光照影响
         Renderer renderer = progressBar.GetComponent<Renderer>();
@@ -106,7 +120,7 @@ public class BCIFeedback : MonoBehaviour
         progressBar.transform.localPosition = new Vector3(
         shaft.localPosition.x,
         shaft.localPosition.y,
-        shaft.localPosition.z - shaft.localScale.y / 2 + minHeight / 2
+        shaft.localPosition.z
         );
 
         progressBar.SetActive(true);
@@ -184,42 +198,59 @@ public class BCIFeedback : MonoBehaviour
     {
         if (progressBar == null || attractor == null) return;
 
-        CheckWheelchairMovement();
-
-        // 当轮椅移动时，隐藏进度条
-        if (!isMoving)
+        // 当轮椅移动时，隐藏进度条并返回
+        if (isMoving)
         {
-
-            progressBar.SetActive(true);
-
-            Transform shaft = attractor.transform.Find(attractor.name + "_Shaft");
-            if (shaft == null) return;
-
-            // 计算进度比例 (0-1)
-            float progress = Mathf.Clamp01(confidence / threshold);
-
-            // 获取原始箭头圆柱体的高度
-            float maxHeight = shaft.localScale.y;
-
-            // 更新进度条高度
-            Vector3 currentScale = progressBar.transform.localScale;
-            float newHeight = Mathf.Lerp(minHeight, maxHeight, progress);
-
-            progressBar.transform.localScale = new Vector3(
-                currentScale.x,
-                newHeight,
-                currentScale.z
-            );
-
-            // 保持底部固定位置
-            progressBar.transform.localPosition = new Vector3(
-                shaft.localPosition.x,
-                shaft.localPosition.y,
-                shaft.localPosition.z - shaft.localScale.y / 2 + newHeight / 2
-            );
-
-            isMoving = false; // 重置移动状态，确保进度条在轮椅停止时更新
-            Debug.Log($"Updating {progressBar.name}: conf={confidence}, progress={progress}, height={newHeight}");
+            if (progressBar.activeSelf)
+            {
+                progressBar.SetActive(false);
+            }
+            return;
         }
+
+        // 当轮椅静止时，显示并更新进度条
+        if (!progressBar.activeSelf)
+        {
+            progressBar.SetActive(true);
+        }
+        
+        // 获取进度条的父物体
+        Transform parentObj = progressBar.transform.parent;
+        if (parentObj == null) return;
+
+        // 重置父物体的位置回到起点
+        // todo
+
+        Transform shaft = attractor.transform.Find(attractor.name + "_Shaft");
+        if (shaft == null) return;
+
+        // 计算进度比例 (0-1)
+        float progress = Mathf.Clamp01(confidence / threshold);
+
+        // 获取原始箭头圆柱体的高度
+        float maxHeight = shaft.localScale.y;
+
+        // 更新进度条高度
+        float newHeight = Mathf.Lerp(minHeight, maxHeight, progress);
+
+        // 设置进度条高度
+        Vector3 currentScale = progressBar.transform.localScale;
+        progressBar.transform.localScale = new Vector3(
+            currentScale.x,
+            newHeight,
+            currentScale.z
+        );
+        // 计算由于高度变化导致的视觉偏移量
+        float heightDelta = (newHeight * 2 - minHeight) / 2;
+        
+        // 调整父物体位置以保持底部固定（轮椅端）
+        parentObj.transform.localPosition = new Vector3(
+            parentObj.transform.localPosition.x,
+            parentObj.transform.localPosition.y,
+            0
+        );
+
+        // 将父物体的位置移动newheight导致的pos变化那么多的距离
+        parentObj.transform.localPosition += Vector3.forward * heightDelta;
     }
 }
