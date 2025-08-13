@@ -131,13 +131,14 @@ public class BCIFeedback : MonoBehaviour
 
     void OnBCIInfoReceived(Float32MultiArrayMsg msg)
     {
-        if (msg.data.Length < 7) return;
+        if (msg.data.Length < 4) return;
 
         // Parse message
-        confLeft = msg.data[0];
-        confForward = msg.data[1];
-        confRight = msg.data[2];
-        threshold = msg.data[6];
+        // msg format: [left, right, forward]
+        confLeft = msg.data[0]; // Left
+        confRight = msg.data[1]; // Right
+        confForward = msg.data[2]; // Forward
+        threshold = msg.data[6]; // set at Yuze side, the valid threshold. Visualize the progress bar only.
 
         Debug.Log($"Received BCI info: L={confLeft}, F={confForward}, R={confRight}, T={threshold}");
 
