@@ -72,6 +72,6 @@ public class WheelchairTrajLogger : MonoBehaviour
 
     public void Export()
     {
-        ExportTrajectory(); // 调用内部已有函数 绑定给botton
+        ExportTrajectory(); // give it to botton
     }
 }

@@ -199,12 +199,12 @@ public class PathOptionHUD : MonoBehaviour
         
         if (targetArrow != null)
         {
-            // 根据参数设置红色或灰色
+            // set arrow color
             targetArrow.color = isRed ? blinkColor : Color.gray;
         }
     }
-    
-    // 重置所有箭头颜色为正常状态
+
+    // Reset all arrow colors to normal state
     void ResetArrowColors()
     {
         SetArrowColor(leftArrow, currentOptions[0]);
