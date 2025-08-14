@@ -138,7 +138,7 @@ public class BCIFeedback : MonoBehaviour
         confLeft = msg.data[0]; // Left
         confRight = msg.data[1]; // Right
         confForward = msg.data[2]; // Forward
-        threshold = msg.data[6]; // set at Yuze side, the valid threshold. Visualize the progress bar only.
+        threshold = msg.data[3]; // set at Yuze side, the valid threshold. Visualize the progress bar only.
 
         Debug.Log($"Received BCI info: L={confLeft}, F={confForward}, R={confRight}, T={threshold}");
 
