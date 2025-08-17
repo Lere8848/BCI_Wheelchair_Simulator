@@ -2,7 +2,9 @@
 
 This is a Unity-based Brain-Computer Interface (BCI) wheelchair simulator designed to simulate intelligent wheelchair navigation and control in indoor environments. The simulator integrates with ROS2 systems and supports the development and testing of Shared Control algorithms.
 
-![Wheelchair Simulator Scene](plt/sim_indoor_office_topdown.png)
+<div align="center">
+<img src="plt/sim_indoor_office_topdown.png" alt="Wheelchair Simulator Scene" width="400">
+</div>
 
 ## Related Projects
 
