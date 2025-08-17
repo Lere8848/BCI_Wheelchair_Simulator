@@ -9,6 +9,7 @@
 !Assets/
 !Packages/
 !ProjectSettings/
+!plt/
 
 # only relevant folders in Assets
 Assets/*
