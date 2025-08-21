@@ -56,7 +56,12 @@ Please make sure you download the following packages through the **Package Manag
 ### 3. BCI Feedback System
 - **`BCIFeedback.cs`**: Subscribes to `/bci_info` topic to display BCI intent confidence
 - **`AttractorVisualizer.cs`**: Visualizes attractor directions (left, forward, right)
-- Real-time display of control intention strength in three directions
+
+Real-time display of control intention strength in three directions. Each arrow corresponds to a feasible navigation option. When a direction is blocked or not available, its arrow automatically disappears, ensuring that the user only sees valid choices at any given time.
+
+At intersections or corners, the interface dynamically updates. For example, if the forward path is blocked, only the “left” or “right” arrows remain. When the system encounters a newly detected passage (e.g., a doorway not previously recognized in the map), it will temporarily pause before updating the available arrows.
+
+The screenshot below illustrates the interface. In this example, the system shows three available directions (blue = left, green = forward, red = right):
 
 ![Real Time Intent Display](plt/real_time_display.png)
 
