@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
 Metric F: Path Efficiency Visualization
-路径效率可视化 - 显示理想路径(A*)与实际轨迹的对比
+Path efficiency visualization: compare the ideal path (A*) vs the actual trajectory.
 
-功能：
-1. 为每个trial创建单独的可视化图
-2. 在障碍物地图上同时显示L_ideal和L_actual
-3. 计算并显示路径效率
-4. 用不同颜色区分理想路径和实际轨迹
+Features:
+1. Create a visualization per trial
+2. Plot L_ideal and L_actual on the obstacle map
+3. Compute and display path efficiency
+4. Use different styles for ideal vs actual paths
 """
 
 import json
@@ -25,32 +25,38 @@ from dataclasses import dataclass
 from typing import List, Tuple, Optional
 from heapq import heappush, heappop
 
+# =========================
+# User-configurable settings
+# =========================
+LOG_PATH = r"d:\UnityProject\wheelchair_sim\Assets\Logs\0820_use_this"
+OUTPUT_PATH = Path(__file__).parent
+
 class PathEfficiencyVisualizer:
     def __init__(self, log_base_path: str, output_path: str = None):
         """
-        初始化路径效率可视化器
+        Initialize the path efficiency visualizer.
         
         Args:
-            log_base_path: 日志文件根目录路径
-            output_path: 输出文件夹路径，默认为当前脚本目录
+            log_base_path: Root directory that contains the log folders
+            output_path: Output directory; defaults to this script directory
         """
         self.log_base_path = Path(log_base_path)
         self.output_path = Path(output_path) if output_path else Path(__file__).parent
         self.output_path.mkdir(exist_ok=True)
         
-        # A*算法参数
+        # A* parameters
         self.resolution = 0.05  # 网格分辨率 (m/pixel)
         self.wheel_radius = 0.35  # 轮椅外半径 (m)
         self.safety_margin = 0.23  # 安全边距 (m)
         self.padding = 1.0  # 世界边界填充 (m)
         
-        # 可视化配置
+        # Visualization config
         self.path_colors = {
             'actual': {'color': '#2E86AB', 'label': 'Actual Path (L_actual)', 'linewidth': 3, 'alpha': 0.8},
             'ideal': {'color': '#A23B72', 'label': 'Ideal Path (L_ideal, A*)', 'linewidth': 3, 'alpha': 0.8, 'linestyle': '--'}
         }
     
-    # ==================== 复用A*算法代码 ====================
+    # ==================== Reused A* implementation ====================
     
     @dataclass
     class Obstacle:
@@ -68,13 +74,13 @@ class PathEfficiencyVisualizer:
         height: int
     
     def quaternion_to_yaw(self, q):
-        """将Unity导出的四元数(x, y, z, w)转换为Y轴的欧拉角"""
+        """Convert Unity quaternion (x, y, z, w) to yaw (rotation around Y axis)."""
         r = R.from_quat([q["x"], q["y"], q["z"], q["w"]])
         yaw = r.as_euler('xyz', degrees=True)[1]
         return yaw
     
     def quat_to_rotmat(self, qx, qy, qz, qw):
-        """将四元数转换为 3x3 旋转矩阵"""
+        """Convert quaternion to a 3x3 rotation matrix."""
         x, y, z, w = qx, qy, qz, qw
         xx, yy, zz = x*x, y*y, z*z
         xy, xz, yz = x*y, x*z, y*z
@@ -87,7 +93,7 @@ class PathEfficiencyVisualizer:
         return R
     
     def load_obstacles(self, obstacles_file: Path) -> List['PathEfficiencyVisualizer.Obstacle']:
-        """加载障碍物数据"""
+        """Load obstacles from obstacles.json."""
         try:
             with open(obstacles_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
@@ -111,7 +117,7 @@ class PathEfficiencyVisualizer:
             return []
     
     def obstacle_footprint_poly(self, obs: 'PathEfficiencyVisualizer.Obstacle', extra_margin: float) -> np.ndarray:
-        """将障碍物转换为膨胀后的多边形"""
+        """Convert an obstacle into an inflated footprint polygon."""
         cx, cz = obs.center
         hx = obs.size_x * 0.5 + extra_margin
         hz = obs.size_z * 0.5 + extra_margin
@@ -142,7 +148,7 @@ class PathEfficiencyVisualizer:
     def compute_bounds(self, obstacles: List['PathEfficiencyVisualizer.Obstacle'], 
                       start: Tuple[float, float], goal: Tuple[float, float],
                       padding: float, extra_margin: float) -> Tuple[float, float, float, float]:
-        """计算世界范围边界"""
+        """Compute world bounds that cover obstacles and start/goal."""
         xs, zs = [], []
         for obs in obstacles:
             poly = self.obstacle_footprint_poly(obs, extra_margin)
@@ -155,7 +161,7 @@ class PathEfficiencyVisualizer:
         return min_x, min_z, max_x, max_z
     
     def world_to_grid(self, x: float, z: float, spec: 'PathEfficiencyVisualizer.GridSpec') -> Tuple[int, int]:
-        """世界坐标转网格索引"""
+        """Convert world coordinates to grid indices."""
         cx = (x - spec.origin[0]) / spec.resolution
         cz = (z - spec.origin[1]) / spec.resolution
         j = int(round(cz))
@@ -163,7 +169,7 @@ class PathEfficiencyVisualizer:
         return i, j
     
     def point_in_poly(self, x: float, y: float, poly: np.ndarray) -> bool:
-        """点在多边形内测试"""
+        """Point-in-polygon test."""
         inside = False
         n = poly.shape[0]
         for i in range(n):
@@ -176,7 +182,7 @@ class PathEfficiencyVisualizer:
         return inside
     
     def rasterize_polygons(self, polys_world: List[np.ndarray], spec: 'PathEfficiencyVisualizer.GridSpec') -> np.ndarray:
-        """将多边形栅格化为占据网格"""
+        """Rasterize polygons into an occupancy grid."""
         occ = np.zeros((spec.height, spec.width), dtype=np.uint8)
         for poly in polys_world:
             minx, minz = poly[:,0].min(), poly[:,1].min()
@@ -195,7 +201,7 @@ class PathEfficiencyVisualizer:
         return occ
     
     def astar_8conn(self, occ: np.ndarray, start_ij: Tuple[int,int], goal_ij: Tuple[int,int]) -> Optional[List[Tuple[int,int]]]:
-        """8邻接A*算法"""
+        """8-connected A* search."""
         H, W = occ.shape
         si, sj = start_ij
         gi, gj = goal_ij
@@ -247,7 +253,7 @@ class PathEfficiencyVisualizer:
         return None
     
     def compute_ideal_path(self, obstacles_file: Path, start: Tuple[float, float], goal: Tuple[float, float]) -> Tuple[Optional[List[Tuple[float, float]]], float]:
-        """计算理想路径并返回世界坐标路径和长度"""
+        """Compute ideal path (A*) and return world path and length."""
         try:
             obstacles = self.load_obstacles(obstacles_file)
             if not obstacles:
@@ -290,10 +296,10 @@ class PathEfficiencyVisualizer:
             print(f"Error computing ideal path: {e}")
             return [start, goal], math.sqrt((goal[0] - start[0])**2 + (goal[1] - start[1])**2)
     
-    # ==================== 轨迹加载函数 ====================
+    # ==================== Trajectory loading ====================
     
     def load_actual_trajectory_from_csv(self, csv_file: Path) -> Tuple[List[Tuple[float, float]], float]:
-        """从CSV文件加载实际轨迹"""
+        """Load the actual trajectory from CSV."""
         try:
             df = pd.read_csv(csv_file)
             
@@ -328,7 +334,7 @@ class PathEfficiencyVisualizer:
             
             trajectory = list(zip(pos_x, pos_z))
             
-            # 计算轨迹长度
+            # Compute trajectory length
             length = 0.0
             for i in range(len(trajectory) - 1):
                 dx = trajectory[i+1][0] - trajectory[i][0]
@@ -342,7 +348,7 @@ class PathEfficiencyVisualizer:
             return [], 0.0
     
     def load_collision_data(self, csv_file: Path) -> List[Tuple[float, float]]:
-        """从CSV文件加载碰撞数据"""
+        """Load collision points from CSV."""
         collision_positions = []
         
         try:
@@ -389,10 +395,10 @@ class PathEfficiencyVisualizer:
         
         return collision_positions
     
-    # ==================== 障碍物绘制函数 ====================
+    # ==================== Obstacle drawing ====================
     
     def draw_obstacles(self, ax, obstacles):
-        """在图上绘制障碍物"""
+        """Draw obstacles on the plot."""
         for ob in obstacles:
             pos = ob["position"]
             size = ob["size"]
@@ -435,15 +441,15 @@ class PathEfficiencyVisualizer:
             rect.set_transform(t)
             ax.add_patch(rect)
     
-    # ==================== 可视化函数 ====================
+    # ==================== Visualization ====================
     
     def create_trial_visualization(self, participant_id: str, trial_id: str, authority: str):
-        """为单个trial创建路径效率可视化"""
+        """Create a path-efficiency plot for a single trial."""
         print(f"Creating visualization for {participant_id} - Trial {trial_id} - Authority {authority}...")
         
         trial_path = self.log_base_path / participant_id / trial_id / authority
         
-        # 加载实际轨迹
+        # Load actual trajectory
         csv_files = list(trial_path.glob('log_*.csv'))
         if not csv_files:
             print(f"No CSV file found for {participant_id}/{trial_id}/{authority}")
@@ -456,14 +462,14 @@ class PathEfficiencyVisualizer:
             print(f"No valid trajectory data for {participant_id}/{trial_id}/{authority}")
             return
         
-        # 获取起终点
+        # Start/goal
         start_pos = actual_trajectory[0]
         end_pos = actual_trajectory[-1]
         
-        # 加载碰撞数据
+        # Collision points
         collision_positions = self.load_collision_data(csv_file)
         
-        # 查找障碍物文件
+        # Find obstacles
         obstacles_files = list(self.log_base_path.glob('**/obstacles.json'))
         if not obstacles_files:
             print("No obstacles.json file found")
@@ -471,24 +477,24 @@ class PathEfficiencyVisualizer:
         
         obstacles_file = obstacles_files[0]
         
-        # 计算理想路径
+        # Compute ideal path
         ideal_path, L_ideal = self.compute_ideal_path(obstacles_file, start_pos, end_pos)
         
-        # 计算路径效率
+        # Path efficiency
         path_efficiency = L_ideal / L_actual if L_actual > 0 else 0.0
         
-        # 加载障碍物用于绘制
+        # Load obstacles for drawing
         with open(obstacles_file, 'r') as f:
             obstacles_data = json.load(f)["obstacles"]
         
-        # 创建图形
+        # Create plot
         fig, ax = plt.subplots(figsize=(12, 10))
         ax.set_aspect('equal')
         
-        # 绘制障碍物
+        # Obstacles
         self.draw_obstacles(ax, obstacles_data)
         
-        # 绘制实际轨迹
+        # Actual path
         actual_config = self.path_colors['actual']
         actual_x = [pos[0] for pos in actual_trajectory]
         actual_z = [pos[1] for pos in actual_trajectory]
@@ -498,7 +504,7 @@ class PathEfficiencyVisualizer:
                alpha=actual_config['alpha'],
                label=f"{actual_config['label']} ({L_actual:.2f}m)")
         
-        # 绘制理想路径
+        # Ideal path
         if ideal_path:
             ideal_config = self.path_colors['ideal']
             ideal_x = [pos[0] for pos in ideal_path]
@@ -510,13 +516,13 @@ class PathEfficiencyVisualizer:
                    linestyle=ideal_config['linestyle'],
                    label=f"{ideal_config['label']} ({L_ideal:.2f}m)")
         
-        # 绘制起终点
+        # Start and goal markers
         ax.plot([start_pos[0]], [start_pos[1]], 'go', markersize=10, 
                label='Start Position', zorder=10)
         ax.plot([end_pos[0]], [end_pos[1]], 'ro', markersize=10, 
                label='Goal Position', zorder=10)
         
-        # 绘制方向箭头（实际轨迹）
+        # Direction arrows (actual path)
         arrow_step = max(1, len(actual_trajectory) // 10)
         for i in range(0, len(actual_trajectory)-1, arrow_step):
             x, z = actual_trajectory[i]
@@ -534,22 +540,22 @@ class PathEfficiencyVisualizer:
                        fc=actual_config['color'], ec=actual_config['color'], 
                        alpha=0.6, zorder=5)
         
-        # 绘制碰撞点
+        # Collision points
         if collision_positions:
             collision_points = np.array(collision_positions)
             ax.scatter(collision_points[:, 0], collision_points[:, 1], 
                      c='red', marker='x', s=100, linewidth=3, 
                      label=f'Collisions ({len(collision_positions)})', zorder=15)
         
-        # 设置坐标轴和图例
+        # Axes and legend
         ax.set_xlabel("X Position (m)", fontsize=12)
         ax.set_ylabel("Z Position (m)", fontsize=12)
         ax.grid(True, alpha=0.3)
         
-        # 设置图例（只显示起终点和路径）
+        # Legend
         ax.legend(loc='upper right', bbox_to_anchor=(1, 1), fontsize=15)
         
-        # 保存图像
+        # Save
         output_file = self.output_path / f"path_efficiency_{participant_id}_{trial_id}_{authority}.png"
         plt.tight_layout()
         plt.savefig(output_file, dpi=300, bbox_inches='tight')
@@ -557,12 +563,12 @@ class PathEfficiencyVisualizer:
         plt.show()
     
     def create_all_trial_visualizations(self):
-        """为所有trial创建路径效率可视化"""
+        """Create path efficiency visualizations for all trials."""
         print("=" * 60)
         print("PATH EFFICIENCY VISUALIZATION FOR METRIC F")
         print("=" * 60)
         
-        # 查找所有参与者
+        # Find all participants
         participants = []
         for participant_dir in sorted(self.log_base_path.glob('T_*')):
             if participant_dir.is_dir():
@@ -574,7 +580,7 @@ class PathEfficiencyVisualizer:
         
         print(f"Found participants: {participants}")
         
-        # 为每个试验创建可视化
+        # Create visualizations for each trial
         total_visualizations = 0
         for participant_id in participants:
             participant_dir = self.log_base_path / participant_id
@@ -598,12 +604,11 @@ class PathEfficiencyVisualizer:
         print(f"Results saved in: {self.output_path}")
 
 def main():
-    """主函数"""
-    # 设置路径
-    log_path = r"d:\UnityProject\wheelchair_sim\Assets\Logs\0820_use_this"
-    output_path = Path(__file__).parent
+    """Entry point."""
+    log_path = LOG_PATH
+    output_path = OUTPUT_PATH
     
-    # 创建可视化器并运行
+    # Create visualizer and run
     visualizer = PathEfficiencyVisualizer(log_path, output_path)
     visualizer.create_all_trial_visualizations()
 

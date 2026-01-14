@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
 Metric F: Combined Path Efficiency Visualization
-路径效率综合可视化 - 将所有trial的L_ideal vs L_actual对比图合并到一个大图中
+Combine multiple path-efficiency plots into a single figure.
 
-功能：
-1. 将8个单独的trial可视化合并到一个4x2网格中
-2. 按参与者和Authority组织布局
-3. 保持每个子图的详细信息
-4. 适合论文发表的高质量图表
+Features:
+1. Merge 8 individual trial visualizations into a 4x2 grid
+2. Organize layout by participant and authority
+3. Preserve detail in each subplot
+4. Produce a publication-quality figure
 """
 
 import json
@@ -25,32 +25,38 @@ from dataclasses import dataclass
 from typing import List, Tuple, Optional
 from heapq import heappush, heappop
 
+# =========================
+# User-configurable settings
+# =========================
+LOG_PATH = r"d:\UnityProject\wheelchair_sim\Assets\Logs\0820_use_this"
+OUTPUT_PATH = Path(__file__).parent
+
 class CombinedPathEfficiencyVisualizer:
     def __init__(self, log_base_path: str, output_path: str = None):
         """
-        初始化综合路径效率可视化器
+        Initialize the combined path-efficiency visualizer.
         
         Args:
-            log_base_path: 日志文件根目录路径
-            output_path: 输出文件夹路径，默认为当前脚本目录
+            log_base_path: Root directory that contains the log folders
+            output_path: Output directory; defaults to this script directory
         """
         self.log_base_path = Path(log_base_path)
         self.output_path = Path(output_path) if output_path else Path(__file__).parent
         self.output_path.mkdir(exist_ok=True)
         
-        # A*算法参数
+        # A* parameters
         self.resolution = 0.05  # 网格分辨率 (m/pixel)
         self.wheel_radius = 0.35  # 轮椅外半径 (m)
         self.safety_margin = 0.23  # 安全边距 (m)
         self.padding = 1.0  # 世界边界填充 (m)
         
-        # 可视化配置
+        # Visualization config
         self.path_colors = {
             'actual': {'color': '#2E86AB', 'label': 'Actual Path', 'linewidth': 2, 'alpha': 0.8},
             'ideal': {'color': '#A23B72', 'label': 'Ideal Path (A*)', 'linewidth': 2, 'alpha': 0.8, 'linestyle': '--'}
         }
     
-    # ==================== 复用A*算法代码 ====================
+    # ==================== Reused A* implementation ====================
     
     @dataclass
     class Obstacle:
@@ -68,13 +74,13 @@ class CombinedPathEfficiencyVisualizer:
         height: int
     
     def quaternion_to_yaw(self, q):
-        """将Unity导出的四元数(x, y, z, w)转换为Y轴的欧拉角"""
+        """Convert Unity quaternion (x, y, z, w) to yaw (rotation around Y axis)."""
         r = R.from_quat([q["x"], q["y"], q["z"], q["w"]])
         yaw = r.as_euler('xyz', degrees=True)[1]
         return yaw
     
     def quat_to_rotmat(self, qx, qy, qz, qw):
-        """将四元数转换为 3x3 旋转矩阵"""
+        """Convert quaternion to a 3x3 rotation matrix."""
         x, y, z, w = qx, qy, qz, qw
         xx, yy, zz = x*x, y*y, z*z
         xy, xz, yz = x*y, x*z, y*z
@@ -87,7 +93,7 @@ class CombinedPathEfficiencyVisualizer:
         return R
     
     def load_obstacles(self, obstacles_file: Path) -> List['CombinedPathEfficiencyVisualizer.Obstacle']:
-        """加载障碍物数据"""
+        """Load obstacles from obstacles.json."""
         try:
             with open(obstacles_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
@@ -111,7 +117,7 @@ class CombinedPathEfficiencyVisualizer:
             return []
     
     def obstacle_footprint_poly(self, obs: 'CombinedPathEfficiencyVisualizer.Obstacle', extra_margin: float) -> np.ndarray:
-        """将障碍物转换为膨胀后的多边形"""
+        """Convert an obstacle into an inflated footprint polygon."""
         cx, cz = obs.center
         hx = obs.size_x * 0.5 + extra_margin
         hz = obs.size_z * 0.5 + extra_margin
@@ -142,7 +148,7 @@ class CombinedPathEfficiencyVisualizer:
     def compute_bounds(self, obstacles: List['CombinedPathEfficiencyVisualizer.Obstacle'], 
                       start: Tuple[float, float], goal: Tuple[float, float],
                       padding: float, extra_margin: float) -> Tuple[float, float, float, float]:
-        """计算世界范围边界"""
+        """Compute world bounds that cover obstacles and start/goal."""
         xs, zs = [], []
         for obs in obstacles:
             poly = self.obstacle_footprint_poly(obs, extra_margin)
@@ -155,7 +161,7 @@ class CombinedPathEfficiencyVisualizer:
         return min_x, min_z, max_x, max_z
     
     def world_to_grid(self, x: float, z: float, spec: 'CombinedPathEfficiencyVisualizer.GridSpec') -> Tuple[int, int]:
-        """世界坐标转网格索引"""
+        """Convert world coordinates to grid indices."""
         cx = (x - spec.origin[0]) / spec.resolution
         cz = (z - spec.origin[1]) / spec.resolution
         j = int(round(cz))
@@ -163,7 +169,7 @@ class CombinedPathEfficiencyVisualizer:
         return i, j
     
     def point_in_poly(self, x: float, y: float, poly: np.ndarray) -> bool:
-        """点在多边形内测试"""
+        """Point-in-polygon test."""
         inside = False
         n = poly.shape[0]
         for i in range(n):
@@ -176,7 +182,7 @@ class CombinedPathEfficiencyVisualizer:
         return inside
     
     def rasterize_polygons(self, polys_world: List[np.ndarray], spec: 'CombinedPathEfficiencyVisualizer.GridSpec') -> np.ndarray:
-        """将多边形栅格化为占据网格"""
+        """Rasterize polygons into an occupancy grid."""
         occ = np.zeros((spec.height, spec.width), dtype=np.uint8)
         for poly in polys_world:
             minx, minz = poly[:,0].min(), poly[:,1].min()
@@ -195,7 +201,7 @@ class CombinedPathEfficiencyVisualizer:
         return occ
     
     def astar_8conn(self, occ: np.ndarray, start_ij: Tuple[int,int], goal_ij: Tuple[int,int]) -> Optional[List[Tuple[int,int]]]:
-        """8邻接A*算法"""
+        """8-connected A* search."""
         H, W = occ.shape
         si, sj = start_ij
         gi, gj = goal_ij
@@ -247,7 +253,7 @@ class CombinedPathEfficiencyVisualizer:
         return None
     
     def compute_ideal_path(self, obstacles_file: Path, start: Tuple[float, float], goal: Tuple[float, float]) -> Tuple[Optional[List[Tuple[float, float]]], float]:
-        """计算理想路径并返回世界坐标路径和长度"""
+        """Compute ideal path (A*) and return world path and length."""
         try:
             obstacles = self.load_obstacles(obstacles_file)
             if not obstacles:
@@ -288,7 +294,7 @@ class CombinedPathEfficiencyVisualizer:
             return [start, goal], math.sqrt((goal[0] - start[0])**2 + (goal[1] - start[1])**2)
     
     def load_actual_trajectory_from_csv(self, csv_file: Path) -> Tuple[List[Tuple[float, float]], float]:
-        """从CSV文件加载实际轨迹"""
+        """Load the actual trajectory from CSV."""
         try:
             df = pd.read_csv(csv_file)
             
@@ -336,7 +342,7 @@ class CombinedPathEfficiencyVisualizer:
             return [], 0.0
     
     def draw_obstacles(self, ax, obstacles):
-        """在图上绘制障碍物"""
+        """Draw obstacles on the plot."""
         for ob in obstacles:
             pos = ob["position"]
             size = ob["size"]
@@ -380,10 +386,10 @@ class CombinedPathEfficiencyVisualizer:
             ax.add_patch(rect)
     
     def plot_single_trial(self, ax, participant_id: str, trial_id: str, authority: str, obstacles_data: list):
-        """在指定的子图上绘制单个trial的路径效率可视化"""
+        """Plot a single trial on a given subplot."""
         trial_path = self.log_base_path / participant_id / trial_id / authority
         
-        # 加载实际轨迹
+        # Load actual trajectory
         csv_files = list(trial_path.glob('log_*.csv'))
         if not csv_files:
             ax.text(0.5, 0.5, 'No Data', ha='center', va='center', transform=ax.transAxes)
@@ -396,11 +402,11 @@ class CombinedPathEfficiencyVisualizer:
             ax.text(0.5, 0.5, 'No Valid Data', ha='center', va='center', transform=ax.transAxes)
             return
         
-        # 获取起终点
+        # Start/goal
         start_pos = actual_trajectory[0]
         end_pos = actual_trajectory[-1]
         
-        # 查找障碍物文件
+        # Find obstacles
         obstacles_files = list(self.log_base_path.glob('**/obstacles.json'))
         if not obstacles_files:
             ax.text(0.5, 0.5, 'No Obstacles', ha='center', va='center', transform=ax.transAxes)
@@ -408,16 +414,16 @@ class CombinedPathEfficiencyVisualizer:
         
         obstacles_file = obstacles_files[0]
         
-        # 计算理想路径
+        # Compute ideal path
         ideal_path, L_ideal = self.compute_ideal_path(obstacles_file, start_pos, end_pos)
         
-        # 计算路径效率
+        # Path efficiency
         path_efficiency = L_ideal / L_actual if L_actual > 0 else 0.0
         
-        # 绘制障碍物
+        # Obstacles
         self.draw_obstacles(ax, obstacles_data)
         
-        # 绘制实际轨迹
+        # Actual path
         actual_config = self.path_colors['actual']
         actual_x = [pos[0] for pos in actual_trajectory]
         actual_z = [pos[1] for pos in actual_trajectory]
@@ -427,7 +433,7 @@ class CombinedPathEfficiencyVisualizer:
                alpha=actual_config['alpha'],
                label=actual_config['label'])
         
-        # 绘制理想路径
+        # Ideal path
         if ideal_path:
             ideal_config = self.path_colors['ideal']
             ideal_x = [pos[0] for pos in ideal_path]
@@ -439,30 +445,30 @@ class CombinedPathEfficiencyVisualizer:
                    linestyle=ideal_config['linestyle'],
                    label=ideal_config['label'])
         
-        # 绘制起终点
+        # Start and goal markers
         ax.plot([start_pos[0]], [start_pos[1]], 'go', markersize=6, zorder=10)
         ax.plot([end_pos[0]], [end_pos[1]], 'ro', markersize=6, zorder=10)
         
-        # 设置坐标轴（不设置标题）
+        # Axes
         ax.set_xlabel("X (m)", fontsize=8)
         ax.set_ylabel("Z (m)", fontsize=8)
         ax.tick_params(labelsize=7)
         ax.grid(True, alpha=0.3)
         ax.set_aspect('equal')
         
-        # 添加效率信息
+        # Annotate lengths
         info_text = f"L_ideal: {L_ideal:.1f}m\nL_actual: {L_actual:.1f}m"
         ax.text(0.02, 0.98, info_text, transform=ax.transAxes, 
                fontsize=8, verticalalignment='top', horizontalalignment='left',
                bbox=dict(boxstyle='round,pad=0.3', facecolor='wheat', alpha=0.8))
     
     def create_combined_visualization(self):
-        """创建合并的路径效率可视化图"""
+        """Create the combined path-efficiency visualization."""
         print("=" * 60)
         print("COMBINED PATH EFFICIENCY VISUALIZATION")
         print("=" * 60)
         
-        # 加载障碍物数据
+        # Load obstacles
         obstacles_files = list(self.log_base_path.glob('**/obstacles.json'))
         if not obstacles_files:
             print("No obstacles.json file found")
@@ -471,12 +477,12 @@ class CombinedPathEfficiencyVisualizer:
         with open(obstacles_files[0], 'r') as f:
             obstacles_data = json.load(f)["obstacles"]
         
-        # 创建4x2的子图布局
+        # 4x2 subplot layout
         fig, axes = plt.subplots(4, 2, figsize=(16, 20))
         fig.suptitle('Metric F: Path Efficiency Analysis - L_ideal vs L_actual Comparison\nAll Trials Combined', 
                     fontsize=16, fontweight='bold', y=0.98)
         
-        # 定义试验组织
+        # Trial layout
         trials_config = [
             # Row 1: T_001 Trial 01
             ('T_001', '01', '0.3', 0, 0),
@@ -492,39 +498,39 @@ class CombinedPathEfficiencyVisualizer:
             ('T_002', '02', '0.7', 3, 1),
         ]
         
-        # 绘制每个子图
+        # Plot subplots
         for participant_id, trial_id, authority, row, col in trials_config:
             print(f"Processing {participant_id} - Trial {trial_id} - Authority {authority}...")
             self.plot_single_trial(axes[row, col], participant_id, trial_id, authority, obstacles_data)
         
-        # 添加总图例
+        # Global legend
         handles, labels = axes[0, 0].get_legend_handles_labels()
         if handles:
             fig.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, 0.02), 
                       ncol=4, fontsize=12)
         
-        # 调整布局
+        # Layout
         plt.tight_layout()
         plt.subplots_adjust(top=0.95, bottom=0.08, hspace=0.3, wspace=0.2)
         
-        # 保存图像
+        # Save
         output_file = self.output_path / "combined_path_efficiency_analysis.png"
         plt.savefig(output_file, dpi=300, bbox_inches='tight')
         print(f"Combined visualization saved to: {output_file}")
         plt.show()
         
-        # 创建一个简化版本（2x4布局）
+        # Create a compact version (2x4)
         self.create_compact_visualization(obstacles_data)
     
     def create_compact_visualization(self, obstacles_data):
-        """创建紧凑版本的合并可视化（2x4布局）"""
+        """Create a compact combined visualization (2x4 layout)."""
         print("Creating compact version...")
         
         fig, axes = plt.subplots(2, 4, figsize=(20, 10))
         fig.suptitle(' ', 
                     fontsize=16, fontweight='bold')
         
-        # 重新组织布局：上排T_001，下排T_002
+        # Layout: top row T_001, bottom row T_002
         trials_config_compact = [
             # Top row: T_001
             ('T_001', '01', '0.3', 0, 0),
@@ -538,11 +544,11 @@ class CombinedPathEfficiencyVisualizer:
             ('T_002', '02', '0.7', 1, 3),
         ]
         
-        # 绘制每个子图
+        # Plot subplots
         for participant_id, trial_id, authority, row, col in trials_config_compact:
             self.plot_single_trial(axes[row, col], participant_id, trial_id, authority, obstacles_data)
         
-        # 添加行标签
+        # Row labels
         axes[0, 0].text(-0.15, 0.5, 'T_001', transform=axes[0, 0].transAxes, 
                        fontsize=14, fontweight='bold', rotation=90, 
                        verticalalignment='center', horizontalalignment='center')
@@ -550,29 +556,28 @@ class CombinedPathEfficiencyVisualizer:
                        fontsize=14, fontweight='bold', rotation=90, 
                        verticalalignment='center', horizontalalignment='center')
         
-        # 添加总图例
+        # Global legend
         handles, labels = axes[0, 0].get_legend_handles_labels()
         if handles:
             fig.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, 0.02), 
                       ncol=4, fontsize=12)
         
-        # 调整布局
+        # Layout
         plt.tight_layout()
         plt.subplots_adjust(top=0.92, bottom=0.12, left=0.08)
         
-        # 保存紧凑版本
+        # Save compact version
         output_file_compact = self.output_path / "combined_path_efficiency_compact.png"
         plt.savefig(output_file_compact, dpi=300, bbox_inches='tight')
         print(f"Compact visualization saved to: {output_file_compact}")
         plt.show()
 
 def main():
-    """主函数"""
-    # 设置路径
-    log_path = r"d:\UnityProject\wheelchair_sim\Assets\Logs\0820_use_this"
-    output_path = Path(__file__).parent
+    """Entry point."""
+    log_path = LOG_PATH
+    output_path = OUTPUT_PATH
     
-    # 创建可视化器并运行
+    # Create visualizer and run
     visualizer = CombinedPathEfficiencyVisualizer(log_path, output_path)
     visualizer.create_combined_visualization()
 

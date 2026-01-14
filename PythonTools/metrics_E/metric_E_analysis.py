@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
 """
 Metric F: Path Efficiency Analysis
-路径效率分析 - 被试内主分析
+Path efficiency analysis (within-subject).
 
-重点分析：
-1. 同一个受试者在两种Authority下的路径效率变化
-2. 受试者内部比较（within-subject analysis）
-3. 分别分析两位受试者的表现
+Focus:
+1. Compare path efficiency under two authority levels for the same participant
+2. Within-subject comparison
+3. Analyze each participant separately
 
-路径效率计算公式：
-PE = L_ideal / L_actual ∈ (0,1]
+Path efficiency:
+PE = L_ideal / L_actual ∈ (0, 1]
 
-其中：
-- L_ideal: 使用A*算法计算的最短安全路径长度
-- L_actual: 实际轮椅行驶的累积路径长度
-- PE越接近1表示路径效率越高
+Where:
+- L_ideal: shortest safe path length computed with A*
+- L_actual: actual traveled path length
+- PE closer to 1 indicates higher efficiency
 """
 
 import os
@@ -32,44 +32,51 @@ from heapq import heappush, heappop
 
 warnings.filterwarnings('ignore')
 
+# =========================
+# User-configurable settings
+# =========================
+LOG_PATH = r"d:\UnityProject\wheelchair_sim\Assets\Logs\0820_use_this"
+OUTPUT_PATH = Path(__file__).parent
+ENABLE_LATEX_OUTPUT = False
+
 class MetricFAnalyzer:
     def __init__(self, log_base_path: str, output_path: str = None):
         """
-        初始化Metric F分析器
+        Initialize the Metric F analyzer.
         
         Args:
-            log_base_path: 日志文件根目录路径
-            output_path: 输出文件夹路径，默认为当前脚本目录
+            log_base_path: Root directory that contains the log folders
+            output_path: Output directory; defaults to this script directory
         """
         self.log_base_path = Path(log_base_path)
         self.output_path = Path(output_path) if output_path else Path(__file__).parent
         self.output_path.mkdir(exist_ok=True)
         
-        # A*算法参数
+        # A* parameters
         self.resolution = 0.05  # 网格分辨率 (m/pixel)
         self.wheel_radius = 0.35  # 轮椅外半径 (m)
         self.safety_margin = 0.15  # 安全边距 (m)
         self.padding = 1.0  # 世界边界填充 (m)
         
-    # ==================== A*算法相关函数 ====================
+    # ==================== A* implementation ====================
     
     @dataclass
     class Obstacle:
         name: str
         center: Tuple[float, float]  # (x, z)
-        size_x: float               # Unity local x size (米)
-        size_z: float               # Unity local z size (米)
-        rotmat: np.ndarray          # 3x3 旋转矩阵（世界系）
+        size_x: float               # Unity local x size (m)
+        size_z: float               # Unity local z size (m)
+        rotmat: np.ndarray          # 3x3 rotation matrix (world)
 
     @dataclass
     class GridSpec:
-        origin: Tuple[float, float]   # (min_x, min_z) 世界坐标
-        resolution: float             # 米/像素
+        origin: Tuple[float, float]   # (min_x, min_z) world coordinates
+        resolution: float             # meters/pixel
         width: int
         height: int
     
     def quat_to_rotmat(self, qx, qy, qz, qw):
-        """将四元数转换为 3x3 旋转矩阵"""
+        """Convert quaternion to a 3x3 rotation matrix."""
         x, y, z, w = qx, qy, qz, qw
         xx, yy, zz = x*x, y*y, z*z
         xy, xz, yz = x*y, x*z, y*z
@@ -82,7 +89,7 @@ class MetricFAnalyzer:
         return R
     
     def load_obstacles(self, obstacles_file: Path) -> List['MetricFAnalyzer.Obstacle']:
-        """加载障碍物数据"""
+        """Load obstacles from obstacles.json."""
         try:
             with open(obstacles_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
@@ -106,7 +113,7 @@ class MetricFAnalyzer:
             return []
     
     def obstacle_footprint_poly(self, obs: 'MetricFAnalyzer.Obstacle', extra_margin: float) -> np.ndarray:
-        """将障碍物转换为膨胀后的多边形"""
+        """Convert an obstacle into an inflated footprint polygon."""
         cx, cz = obs.center
         hx = obs.size_x * 0.5 + extra_margin
         hz = obs.size_z * 0.5 + extra_margin
@@ -137,7 +144,7 @@ class MetricFAnalyzer:
     def compute_bounds(self, obstacles: List['MetricFAnalyzer.Obstacle'], 
                       start: Tuple[float, float], goal: Tuple[float, float],
                       padding: float, extra_margin: float) -> Tuple[float, float, float, float]:
-        """计算世界范围边界"""
+        """Compute world bounds that cover obstacles and start/goal."""
         xs, zs = [], []
         for obs in obstacles:
             poly = self.obstacle_footprint_poly(obs, extra_margin)
@@ -150,7 +157,7 @@ class MetricFAnalyzer:
         return min_x, min_z, max_x, max_z
     
     def world_to_grid(self, x: float, z: float, spec: 'MetricFAnalyzer.GridSpec') -> Tuple[int, int]:
-        """世界坐标转网格索引"""
+        """Convert world coordinates to grid indices."""
         cx = (x - spec.origin[0]) / spec.resolution
         cz = (z - spec.origin[1]) / spec.resolution
         j = int(round(cz))  # row
@@ -158,7 +165,7 @@ class MetricFAnalyzer:
         return i, j
     
     def point_in_poly(self, x: float, y: float, poly: np.ndarray) -> bool:
-        """点在多边形内测试"""
+        """Point-in-polygon test."""
         inside = False
         n = poly.shape[0]
         for i in range(n):
@@ -171,7 +178,7 @@ class MetricFAnalyzer:
         return inside
     
     def rasterize_polygons(self, polys_world: List[np.ndarray], spec: 'MetricFAnalyzer.GridSpec') -> np.ndarray:
-        """将多边形栅格化为占据网格"""
+        """Rasterize polygons into an occupancy grid."""
         occ = np.zeros((spec.height, spec.width), dtype=np.uint8)
         for poly in polys_world:
             minx, minz = poly[:,0].min(), poly[:,1].min()
@@ -190,7 +197,7 @@ class MetricFAnalyzer:
         return occ
     
     def astar_8conn(self, occ: np.ndarray, start_ij: Tuple[int,int], goal_ij: Tuple[int,int]) -> Optional[List[Tuple[int,int]]]:
-        """8邻接A*算法"""
+        """8-connected A* search."""
         H, W = occ.shape
         si, sj = start_ij
         gi, gj = goal_ij
@@ -242,40 +249,40 @@ class MetricFAnalyzer:
         return None
     
     def compute_L_ideal(self, obstacles_file: Path, start: Tuple[float, float], goal: Tuple[float, float]) -> float:
-        """计算理想路径长度"""
+        """Compute the ideal path length (L_ideal)."""
         try:
-            # 加载障碍物
+            # Load obstacles
             obstacles = self.load_obstacles(obstacles_file)
             if not obstacles:
                 print(f"Warning: No obstacles loaded from {obstacles_file}")
-                # 如果没有障碍物，返回直线距离
+                # No obstacles: return straight-line distance
                 return math.sqrt((goal[0] - start[0])**2 + (goal[1] - start[1])**2)
             
-            # 计算边界并建立网格
+            # Compute bounds and build grid
             extra = self.wheel_radius + self.safety_margin
             min_x, min_z, max_x, max_z = self.compute_bounds(obstacles, start, goal, self.padding, extra)
             width = int(math.ceil((max_x - min_x) / self.resolution)) + 1
             height = int(math.ceil((max_z - min_z) / self.resolution)) + 1
             spec = self.GridSpec(origin=(min_x, min_z), resolution=self.resolution, width=width, height=height)
 
-            # 将障碍物转换为膨胀多边形
+            # Inflate obstacles
             polys = [self.obstacle_footprint_poly(obs, extra) for obs in obstacles]
 
-            # 栅格化占据网格
+            # Rasterize occupancy
             occ = self.rasterize_polygons(polys, spec)
 
-            # 起终点映射到像素
+            # Map start/goal to grid
             si, sj = self.world_to_grid(start[0], start[1], spec)
             gi, gj = self.world_to_grid(goal[0], goal[1], spec)
 
-            # A*最短路径
+            # A* shortest path
             path = self.astar_8conn(occ, (si, sj), (gi, gj))
             if path is None or len(path) < 2:
                 print(f"Warning: A* failed for start={start}, goal={goal}")
-                # A*失败时返回直线距离作为下界
+                # Fallback: straight-line distance as a lower bound
                 return math.sqrt((goal[0] - start[0])**2 + (goal[1] - start[1])**2)
 
-            # 计算路径长度
+            # Path length
             length_px = 0.0
             for k in range(len(path) - 1):
                 (i1, j1), (i2, j2) = path[k], path[k+1]
@@ -288,17 +295,17 @@ class MetricFAnalyzer:
             
         except Exception as e:
             print(f"Error computing L_ideal: {e}")
-            # 出错时返回直线距离
+                # Fallback on error
             return math.sqrt((goal[0] - start[0])**2 + (goal[1] - start[1])**2)
     
-    # ==================== 路径效率分析函数 ====================
+            # ==================== Path efficiency analysis ====================
     
     def compute_actual_path_length_from_csv(self, csv_file: Path) -> Tuple[float, Tuple[float, float], Tuple[float, float]]:
-        """从CSV文件计算实际路径长度并返回起终点"""
+        """Compute L_actual from CSV and return start/goal."""
         try:
             df = pd.read_csv(csv_file)
             
-            # 查找位置列
+            # Find position columns
             pos_x_col = None
             pos_z_col = None
             
@@ -312,7 +319,7 @@ class MetricFAnalyzer:
                 print(f"Warning: Position columns not found in {csv_file}")
                 return 0.0, (0.0, 0.0), (0.0, 0.0)
             
-            # 提取位置数据
+            # Extract position data
             if isinstance(df[pos_x_col], pd.DataFrame):
                 pos_x = df[pos_x_col].iloc[:, 0].values
             else:
@@ -323,7 +330,7 @@ class MetricFAnalyzer:
             else:
                 pos_z = df[pos_z_col].values
             
-            # 去除无效值
+            # Filter invalid values
             valid_mask = ~(np.isnan(pos_x) | np.isnan(pos_z))
             pos_x = pos_x[valid_mask]
             pos_z = pos_z[valid_mask]
@@ -331,7 +338,7 @@ class MetricFAnalyzer:
             if len(pos_x) < 2:
                 return 0.0, (0.0, 0.0), (0.0, 0.0)
             
-            # 计算累积路径长度
+            # Cumulative path length
             cumulative_distance = 0.0
             for i in range(len(pos_x) - 1):
                 dx = pos_x[i + 1] - pos_x[i]
@@ -349,7 +356,7 @@ class MetricFAnalyzer:
             return 0.0, (0.0, 0.0), (0.0, 0.0)
     
     def compute_actual_path_length_from_trajectory(self, traj_file: Path) -> Tuple[float, Tuple[float, float], Tuple[float, float]]:
-        """从轨迹JSON文件计算实际路径长度"""
+        """Compute L_actual from a trajectory JSON file."""
         try:
             with open(traj_file, 'r') as f:
                 traj_data = json.load(f)
@@ -361,13 +368,13 @@ class MetricFAnalyzer:
             if len(points) < 2:
                 return 0.0, (0.0, 0.0), (0.0, 0.0)
             
-            # 提取位置信息
+            # Extract positions
             positions = []
             for point in points:
                 pos = point['position']
                 positions.append((pos['x'], pos['z']))
             
-            # 计算路径长度
+            # Path length
             cumulative_distance = 0.0
             for i in range(len(positions) - 1):
                 x1, z1 = positions[i]
@@ -385,14 +392,14 @@ class MetricFAnalyzer:
             return 0.0, (0.0, 0.0), (0.0, 0.0)
     
     def analyze_single_trial(self, participant_id: str, trial_id: str, authority: str) -> dict:
-        """分析单个试验的路径效率"""
+        """Analyze path efficiency for a single trial."""
         trial_path = self.log_base_path / participant_id / trial_id / authority
         
-        # 查找轨迹文件
+        # Find trajectory sources
         csv_files = list(trial_path.glob('log_*.csv'))
         trajectory_files = list(trial_path.glob('trajectory_*.json'))
         
-        # 计算实际路径长度
+        # Compute actual path length
         L_actual = 0.0
         start_pos = (0.0, 0.0)
         end_pos = (0.0, 0.0)
@@ -405,7 +412,7 @@ class MetricFAnalyzer:
             print(f"Warning: No trajectory data found in {trial_path}")
             return self._empty_path_efficiency_data(participant_id, trial_id, authority)
         
-        # 查找障碍物文件
+        # Find obstacles
         obstacles_files = list(self.log_base_path.glob('**/obstacles.json'))
         if not obstacles_files:
             print("Warning: No obstacles.json file found")
@@ -413,13 +420,13 @@ class MetricFAnalyzer:
         
         obstacles_file = obstacles_files[0]
         
-        # 计算理想路径长度
+        # Compute ideal path length
         L_ideal = self.compute_L_ideal(obstacles_file, start_pos, end_pos)
         
-        # 计算路径效率
+        # Path efficiency
         path_efficiency = L_ideal / L_actual if L_actual > 0 else 0.0
         
-        # 计算直线距离
+        # Straight-line distance
         straight_distance = math.sqrt((end_pos[0] - start_pos[0])**2 + (end_pos[1] - start_pos[1])**2)
         
         return {
@@ -436,7 +443,7 @@ class MetricFAnalyzer:
         }
     
     def _empty_path_efficiency_data(self, participant_id: str, trial_id: str, authority: str) -> dict:
-        """返回空的路径效率数据"""
+        """Return an empty path-efficiency record."""
         return {
             'participant': participant_id,
             'trial': trial_id,
@@ -451,10 +458,10 @@ class MetricFAnalyzer:
         }
     
     def collect_all_data(self) -> pd.DataFrame:
-        """收集所有试验的路径效率数据"""
+        """Collect path-efficiency data for all trials."""
         all_results = []
         
-        # 遍历所有参与者
+        # Iterate all participants
         for participant_dir in sorted(self.log_base_path.glob('T_*')):
             if not participant_dir.is_dir():
                 continue
@@ -462,7 +469,7 @@ class MetricFAnalyzer:
             participant_id = participant_dir.name
             print(f"Processing participant: {participant_id}")
             
-            # 遍历所有试验
+            # Iterate all trials
             for trial_dir in sorted(participant_dir.glob('[0-9]*')):
                 if not trial_dir.is_dir():
                     continue
@@ -470,7 +477,7 @@ class MetricFAnalyzer:
                 trial_id = trial_dir.name
                 print(f"  Processing trial: {trial_id}")
                 
-                # 遍历所有权限级别
+                # Iterate all authority levels
                 for authority_dir in sorted(trial_dir.glob('0.*')):
                     if not authority_dir.is_dir():
                         continue
@@ -478,25 +485,25 @@ class MetricFAnalyzer:
                     authority = authority_dir.name
                     print(f"    Processing authority: {authority}")
                     
-                    # 分析单个试验
+                    # Analyze single trial
                     result = self.analyze_single_trial(participant_id, trial_id, authority)
                     all_results.append(result)
         
         return pd.DataFrame(all_results)
     
     def perform_within_subject_analysis(self, df: pd.DataFrame) -> dict:
-        """执行被试内分析"""
+        """Perform within-subject analysis."""
         results = {}
         
-        # 为每位受试者分别分析
+        # Analyze each participant
         for participant in df['participant'].unique():
             participant_data = df[df['participant'] == participant]
             
-            # 按Authority分组
+            # Group by authority
             authority_03 = participant_data[participant_data['authority'] == 0.3]
             authority_07 = participant_data[participant_data['authority'] == 0.7]
             
-            # 计算各指标的平均值
+            # Compute means
             results[participant] = {
                 'authority_0.3': {
                     'path_efficiency_mean': authority_03['path_efficiency'].mean(),
@@ -514,7 +521,7 @@ class MetricFAnalyzer:
                 }
             }
             
-            # 计算差异
+            # Difference
             efficiency_diff = (authority_07['path_efficiency'].mean() - 
                              authority_03['path_efficiency'].mean())
             
@@ -525,7 +532,7 @@ class MetricFAnalyzer:
         return results
     
     def create_summary_table(self, within_subject_results: dict) -> pd.DataFrame:
-        """创建汇总表格"""
+        """Create a summary table."""
         table_data = []
         
         for participant, data in within_subject_results.items():
@@ -554,7 +561,7 @@ class MetricFAnalyzer:
         return pd.DataFrame(table_data)
     
     def create_visualizations(self, df: pd.DataFrame):
-        """创建可视化图表"""
+        """Create visualization plots."""
         plt.style.use('default')
         sns.set_palette("Set2")
         
@@ -565,7 +572,7 @@ class MetricFAnalyzer:
         fig.suptitle('Metric F: Path Efficiency Analysis - Within-Subject Comparison', 
                     fontsize=16, fontweight='bold')
         
-        # 1. 路径效率箱线图
+        # 1. Path efficiency boxplot
         sns.boxplot(data=df_vis, x='participant', y='path_efficiency', 
                    hue='authority_label', ax=axes[0,0])
         axes[0,0].set_title('Path Efficiency by Participant and Authority')
@@ -573,7 +580,7 @@ class MetricFAnalyzer:
         axes[0,0].set_ylabel('Path Efficiency (L_ideal/L_actual)')
         axes[0,0].legend(title='Authority Level')
         
-        # 2. 实际路径长度箱线图
+        # 2. Actual path length boxplot
         sns.boxplot(data=df_vis, x='participant', y='L_actual', 
                    hue='authority_label', ax=axes[0,1])
         axes[0,1].set_title('Actual Path Length by Participant and Authority')
@@ -581,7 +588,7 @@ class MetricFAnalyzer:
         axes[0,1].set_ylabel('L_actual (m)')
         axes[0,1].legend(title='Authority Level')
         
-        # 3. 理想路径长度箱线图
+        # 3. Ideal path length boxplot
         sns.boxplot(data=df_vis, x='participant', y='L_ideal', 
                    hue='authority_label', ax=axes[1,0])
         axes[1,0].set_title('Ideal Path Length by Participant and Authority')
@@ -589,7 +596,7 @@ class MetricFAnalyzer:
         axes[1,0].set_ylabel('L_ideal (m)')
         axes[1,0].legend(title='Authority Level')
         
-        # 4. 路径效率对比柱状图
+        # 4. Path efficiency bar chart
         participant_means = df.groupby(['participant', 'authority'])['path_efficiency'].mean().unstack()
         
         x_pos = np.arange(len(participant_means.index))
@@ -608,7 +615,7 @@ class MetricFAnalyzer:
         axes[1,1].legend()
         axes[1,1].grid(axis='y', alpha=0.3)
         
-        # 添加数值标签
+        # Value labels
         for bars in [bars1, bars2]:
             for bar in bars:
                 height = bar.get_height()
@@ -620,19 +627,19 @@ class MetricFAnalyzer:
         
         plt.tight_layout()
         
-        # 保存图表
-        output_file = self.output_path / "metric_F_path_efficiency_analysis.png"
+        # Save plot
+        output_file = self.output_path / "metric_E_path_efficiency_analysis.png"
         plt.savefig(output_file, dpi=300, bbox_inches='tight')
         print(f"Visualization saved to: {output_file}")
         plt.show()
     
     def generate_latex_table(self, summary_df: pd.DataFrame) -> str:
-        """生成LaTeX表格"""
+        """Generate a LaTeX table."""
         latex_table = """
 \\begin{table}[h]
 \\centering
 \\caption{Metric F: Path Efficiency Analysis by Participant and Authority Level}
-\\label{tab:metric_f_efficiency}
+\\label{tab:metric_E_efficiency}
 \\begin{tabular}{cccccc}
 \\toprule
 Participant & Authority & Path & L\\textsubscript{actual} & L\\textsubscript{ideal} & Straight \\\\
@@ -656,12 +663,12 @@ Participant & Authority & Path & L\\textsubscript{actual} & L\\textsubscript{ide
         return latex_table
     
     def run_complete_analysis(self):
-        """运行完整的Metric F分析"""
+        """Run the complete Metric F analysis."""
         print("=" * 60)
         print("METRIC F: PATH EFFICIENCY ANALYSIS")
         print("=" * 60)
         
-        # 1. 收集数据
+        # 1. Collect data
         print("\n1. Collecting path efficiency data from all trials...")
         df = self.collect_all_data()
         
@@ -669,17 +676,17 @@ Participant & Authority & Path & L\\textsubscript{actual} & L\\textsubscript{ide
             print("No data found. Please check the log file paths.")
             return
         
-        # 保存原始数据
-        raw_data_file = self.output_path / "metric_F_raw_data.csv"
+        # Save raw data
+        raw_data_file = self.output_path / "metric_E_raw_data.csv"
         df.to_csv(raw_data_file, index=False)
         print(f"Raw data saved to: {raw_data_file}")
         
-        # 2. 显示原始数据
+        # 2. Print raw data
         print("\n2. Raw Data:")
         print("-" * 40)
         print(df.to_string(index=False))
         
-        # 3. 被试内分析
+        # 3. Within-subject analysis
         print("\n3. Within-Subject Analysis:")
         print("-" * 40)
         within_subject_results = self.perform_within_subject_analysis(df)
@@ -692,39 +699,33 @@ Participant & Authority & Path & L\\textsubscript{actual} & L\\textsubscript{ide
             direction = "more efficient" if efficiency_diff > 0 else "less efficient"
             print(f"  High authority is {abs(efficiency_diff):.3f} {direction}")
         
-        # 4. 创建汇总表格
+        # 4. Summary table
         print("\n4. Summary Table:")
         print("-" * 40)
         summary_df = self.create_summary_table(within_subject_results)
         print(summary_df.to_string(index=False))
         
-        # 保存汇总表格
-        summary_file = self.output_path / "metric_F_summary_table.csv"
+        # Save summary table
+        summary_file = self.output_path / "metric_E_summary_table.csv"
         summary_df.to_csv(summary_file, index=False)
         print(f"Summary table saved to: {summary_file}")
         
-        # 5. 生成可视化
+        # 5. Visualizations
         print("\n5. Generating visualizations...")
         self.create_visualizations(df)
         
-        # 6. 生成LaTeX表格
-        print("\n6. LaTeX Table:")
-        print("-" * 40)
-        latex_table = self.generate_latex_table(summary_df)
-        print(latex_table)
+        # # 6. LaTeX table
+        # print("\n6. LaTeX Table:")
+        # print("-" * 40)
+        # latex_table = self.generate_latex_table(summary_df)
+        # print(latex_table)
         
-        # 保存LaTeX表格
-        latex_file = self.output_path / "metric_F_latex_table.tex"
-        with open(latex_file, 'w', encoding='utf-8') as f:
-            f.write(latex_table)
-        print(f"LaTeX table saved to: {latex_file}")
-        
-        # 7. 分析总结
+        # 7. Summary
         print("\n7. Analysis Summary:")
         print("-" * 40)
         print(f"• Total trials analyzed: {len(df)}")
         
-        # 计算整体效率统计
+        # Overall efficiency stats
         auth_03_efficiency = df[df['authority'] == 0.3]['path_efficiency'].mean()
         auth_07_efficiency = df[df['authority'] == 0.7]['path_efficiency'].mean()
         
@@ -743,12 +744,11 @@ Participant & Authority & Path & L\\textsubscript{actual} & L\\textsubscript{ide
         print(f"• Results saved in: {self.output_path}")
 
 def main():
-    """主函数"""
-    # 设置路径
-    log_path = r"d:\UnityProject\wheelchair_sim\Assets\Logs\0820_use_this"
-    output_path = Path(__file__).parent
+    """Entry point."""
+    log_path = LOG_PATH
+    output_path = OUTPUT_PATH
     
-    # 创建分析器并运行分析
+    # Create analyzer and run
     analyzer = MetricFAnalyzer(log_path, output_path)
     analyzer.run_complete_analysis()
 

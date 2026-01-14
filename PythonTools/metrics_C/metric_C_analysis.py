@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """
 Metric C: Trajectory Smoothness Analysis
-轨迹平滑度分析 - 被试内主分析
+Trajectory smoothness analysis (within-subject).
 
-重点分析：
-1. 同一个受试者在两种Authority下的轨迹平滑度变化
-2. 受试者内部比较（within-subject analysis）
-3. 分别分析两位受试者的表现
+Focus:
+1. Compare smoothness for the same participant under two authority levels.
+2. Within-subject comparison.
+3. Compare performance across participants.
 
-轨迹平滑度计算公式：
+Smoothness definition:
 S_angle = Σ|wrap[-π,π](θ_{i+1} - θ_i)|
 
-轨迹越平滑，转向角度变化越小，S_angle值越小
+Smoother trajectories have smaller heading changes, i.e., smaller S_angle.
 """
 
 import os
@@ -24,14 +24,21 @@ from pathlib import Path
 import warnings
 warnings.filterwarnings('ignore')
 
+# =============================
+# User-configurable settings
+# =============================
+LOG_PATH = r"d:\UnityProject\wheelchair_sim\Assets\Logs\0820_use_this"
+OUTPUT_PATH = Path(__file__).parent
+ENABLE_LATEX_OUTPUT = False
+
 class MetricCAnalyzer:
     def __init__(self, log_base_path: str, output_path: str = None):
         """
-        初始化Metric C分析器
+        Initialize the Metric C analyzer.
         
         Args:
-            log_base_path: 日志文件根目录路径
-            output_path: 输出文件夹路径，默认为当前脚本目录
+            log_base_path: Root directory containing log files.
+            output_path: Output directory (defaults to this script directory).
         """
         self.log_base_path = Path(log_base_path)
         self.output_path = Path(output_path) if output_path else Path(__file__).parent
@@ -39,25 +46,25 @@ class MetricCAnalyzer:
         
     def wrap_angle(self, angle):
         """
-        将角度包裹到[-π, π]范围内
+        Wrap an angle to the [-π, π] range.
         
         Args:
-            angle: 输入角度（弧度）
+            angle: Angle in radians.
             
         Returns:
-            包裹后的角度
+            Wrapped angle.
         """
         return np.arctan2(np.sin(angle), np.cos(angle))
     
     def compute_heading_from_positions(self, positions):
         """
-        从位置序列计算航向角
+        Compute headings from a position sequence.
         
         Args:
-            positions: 位置序列 [(x1, z1), (x2, z2), ...]
+            positions: Sequence [(x1, z1), (x2, z2), ...]
             
         Returns:
-            航向角序列（弧度）
+            Heading angles (radians).
         """
         headings = []
         
@@ -65,11 +72,11 @@ class MetricCAnalyzer:
             x1, z1 = positions[i]
             x2, z2 = positions[i + 1]
             
-            # 计算两点间的方向向量
+            # Direction vector between two points
             dx = x2 - x1
             dz = z2 - z1
             
-            # 计算航向角（使用atan2保证正确的象限）
+            # Heading via atan2 to preserve quadrant
             heading = np.arctan2(dz, dx)
             headings.append(heading)
         
@@ -77,18 +84,18 @@ class MetricCAnalyzer:
     
     def compute_smoothness_from_csv(self, csv_file: Path) -> dict:
         """
-        从CSV文件中计算轨迹平滑度
+        Compute smoothness metrics from a CSV log.
         
         Args:
-            csv_file: CSV日志文件路径
+            csv_file: Path to the CSV log.
             
         Returns:
-            Dict包含平滑度统计信息
+            Dict containing smoothness statistics.
         """
         try:
             df = pd.read_csv(csv_file)
             
-            # 查找位置列（处理重复列名）
+            # Find position columns (handle duplicated names)
             pos_x_col = None
             pos_z_col = None
             
@@ -102,7 +109,7 @@ class MetricCAnalyzer:
                 print(f"Warning: Position columns not found in {csv_file}")
                 return self._empty_smoothness_data()
             
-            # 提取位置数据
+            # Extract position data
             if isinstance(df[pos_x_col], pd.DataFrame):
                 pos_x = df[pos_x_col].iloc[:, 0].values
             else:
@@ -113,7 +120,7 @@ class MetricCAnalyzer:
             else:
                 pos_z = df[pos_z_col].values
             
-            # 去除无效值
+            # Drop invalid values
             valid_mask = ~(np.isnan(pos_x) | np.isnan(pos_z))
             pos_x = pos_x[valid_mask]
             pos_z = pos_z[valid_mask]
@@ -508,7 +515,7 @@ class MetricCAnalyzer:
         
         plt.tight_layout()
         
-        # 保存图表
+        # Save figure
         output_file = self.output_path / "metric_C_trajectory_smoothness_analysis.png"
         plt.savefig(output_file, dpi=300, bbox_inches='tight')
         print(f"Visualization saved to: {output_file}")
@@ -516,13 +523,13 @@ class MetricCAnalyzer:
     
     def generate_latex_table(self, summary_df: pd.DataFrame) -> str:
         """
-        生成LaTeX表格
+        Generate a LaTeX table.
         
         Args:
-            summary_df: 汇总数据DataFrame
+            summary_df: Summary dataframe.
             
         Returns:
-            LaTeX表格字符串
+            LaTeX table as a string.
         """
         latex_table = """
 \\begin{table}[h]
@@ -553,13 +560,13 @@ Participant & Authority & Total Angle & Normalized & Mean Angle & Path Length \\
     
     def run_complete_analysis(self):
         """
-        运行完整的Metric C分析
+        Run the complete Metric C analysis.
         """
         print("=" * 60)
         print("METRIC C: TRAJECTORY SMOOTHNESS ANALYSIS")
         print("=" * 60)
         
-        # 1. 收集数据
+        # 1) Collect data
         print("\n1. Collecting trajectory data from all trials...")
         df = self.collect_all_data()
         
@@ -567,17 +574,17 @@ Participant & Authority & Total Angle & Normalized & Mean Angle & Path Length \\
             print("No data found. Please check the log file paths.")
             return
         
-        # 保存原始数据
+        # Save raw data
         raw_data_file = self.output_path / "metric_C_raw_data.csv"
         df.to_csv(raw_data_file, index=False)
         print(f"Raw data saved to: {raw_data_file}")
         
-        # 2. 显示原始数据
+        # 2) Show raw data
         print("\n2. Raw Data:")
         print("-" * 40)
         print(df.to_string(index=False))
         
-        # 3. 被试内分析
+        # 3) Within-subject analysis
         print("\n3. Within-Subject Analysis:")
         print("-" * 40)
         within_subject_results = self.perform_within_subject_analysis(df)
@@ -592,34 +599,34 @@ Participant & Authority & Total Angle & Normalized & Mean Angle & Path Length \\
             direction = "smoother" if improvement > 0 else "less smooth"
             print(f"  High authority trajectory is {abs(improvement):.4f} rad/m {direction}")
         
-        # 4. 创建汇总表格
+        # 4) Summary table
         print("\n4. Summary Table:")
         print("-" * 40)
         summary_df = self.create_summary_table(within_subject_results)
         print(summary_df.to_string(index=False))
         
-        # 保存汇总表格
+        # Save summary table
         summary_file = self.output_path / "metric_C_summary_table.csv"
         summary_df.to_csv(summary_file, index=False)
         print(f"Summary table saved to: {summary_file}")
         
-        # 5. 生成可视化
+        # 5) Visualizations
         print("\n5. Generating visualizations...")
         self.create_visualizations(df)
+
+        # 6) LaTeX table output (disabled)
+        # if ENABLE_LATEX_OUTPUT:
+        #     print("\n6. LaTeX Table:")
+        #     print("-" * 40)
+        #     latex_table = self.generate_latex_table(summary_df)
+        #     print(latex_table)
+        #
+        #     latex_file = self.output_path / "metric_C_latex_table.tex"
+        #     with open(latex_file, 'w', encoding='utf-8') as f:
+        #         f.write(latex_table)
+        #     print(f"LaTeX table saved to: {latex_file}")
         
-        # 6. 生成LaTeX表格
-        print("\n6. LaTeX Table:")
-        print("-" * 40)
-        latex_table = self.generate_latex_table(summary_df)
-        print(latex_table)
-        
-        # 保存LaTeX表格
-        latex_file = self.output_path / "metric_C_latex_table.tex"
-        with open(latex_file, 'w', encoding='utf-8') as f:
-            f.write(latex_table)
-        print(f"LaTeX table saved to: {latex_file}")
-        
-        # 7. 分析总结
+        # 7) Summary
         print("\n7. Analysis Summary:")
         print("-" * 40)
         print(f"• Total trials analyzed: {len(df)}")
@@ -643,13 +650,8 @@ Participant & Authority & Total Angle & Normalized & Mean Angle & Path Length \\
         print(f"• Results saved in: {self.output_path}")
 
 def main():
-    """主函数"""
-    # 设置路径
-    log_path = r"d:\UnityProject\wheelchair_sim\Assets\Logs\0820_use_this"
-    output_path = Path(__file__).parent
-    
-    # 创建分析器并运行分析
-    analyzer = MetricCAnalyzer(log_path, output_path)
+    """Entry point."""
+    analyzer = MetricCAnalyzer(LOG_PATH, OUTPUT_PATH)
     analyzer.run_complete_analysis()
 
 if __name__ == "__main__":

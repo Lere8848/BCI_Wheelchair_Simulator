@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """
 Metric D: Distance Traveled within Fixed Time Window Analysis
-固定时间窗口内行驶距离分析 - 被试内主分析
+Distance traveled analysis within a fixed time window (within-subject).
 
-重点分析：
-1. 同一个受试者在两种Authority下的行驶距离变化
-2. 受试者内部比较（within-subject analysis）
-3. 分别分析两位受试者的表现
+Focus:
+1. Compare distance traveled under two authority levels for the same participant
+2. Within-subject comparison
+3. Analyze each participant separately
 
-距离计算公式：
-L_actual = Σ||（x_{t+1} - x_t, z_{t+1} - z_t）||_2
+Distance formula:
+L_actual = Σ || (x_{t+1} - x_t, z_{t+1} - z_t) ||_2
 
-在固定时间资源下，沿路径的更大进展反映了更高的生产力和任务效率
+Under a fixed time budget, making more progress along the path indicates higher productivity and efficiency.
 """
 
 import os
@@ -24,14 +24,21 @@ from pathlib import Path
 import warnings
 warnings.filterwarnings('ignore')
 
+# =========================
+# User-configurable settings
+# =========================
+LOG_PATH = r"d:\UnityProject\wheelchair_sim\Assets\Logs\0820_use_this"
+OUTPUT_PATH = Path(__file__).parent
+ENABLE_LATEX_OUTPUT = False
+
 class MetricDAnalyzer:
     def __init__(self, log_base_path: str, output_path: str = None):
         """
-        初始化Metric D分析器
+        Initialize the Metric D analyzer.
         
         Args:
-            log_base_path: 日志文件根目录路径
-            output_path: 输出文件夹路径，默认为当前脚本目录
+            log_base_path: Root directory that contains the log folders
+            output_path: Output directory; defaults to this script directory
         """
         self.log_base_path = Path(log_base_path)
         self.output_path = Path(output_path) if output_path else Path(__file__).parent
@@ -39,18 +46,18 @@ class MetricDAnalyzer:
         
     def compute_path_distance_from_csv(self, csv_file: Path) -> dict:
         """
-        从CSV文件中计算路径距离
+        Compute traveled distance from a CSV log file.
         
         Args:
-            csv_file: CSV日志文件路径
+            csv_file: CSV log file path
             
         Returns:
-            Dict包含距离统计信息
+            Dict with distance statistics
         """
         try:
             df = pd.read_csv(csv_file)
             
-            # 查找位置和时间列（处理重复列名）
+            # Find position/time columns (handle potential duplicate column names)
             pos_x_col = None
             pos_z_col = None
             timestamp_col = None
@@ -67,7 +74,7 @@ class MetricDAnalyzer:
                 print(f"Warning: Position columns not found in {csv_file}")
                 return self._empty_distance_data()
             
-            # 提取位置数据
+            # Extract position data
             if isinstance(df[pos_x_col], pd.DataFrame):
                 pos_x = df[pos_x_col].iloc[:, 0].values
             else:
@@ -78,17 +85,17 @@ class MetricDAnalyzer:
             else:
                 pos_z = df[pos_z_col].values
             
-            # 提取时间数据
+            # Extract timestamps
             if timestamp_col is not None:
                 if isinstance(df[timestamp_col], pd.DataFrame):
                     timestamps = df[timestamp_col].iloc[:, 0].values
                 else:
                     timestamps = df[timestamp_col].values
             else:
-                # 如果没有时间戳，假设固定采样率
-                timestamps = np.arange(len(pos_x)) * 0.1  # 假设100ms采样率
+                # If there is no timestamp column, assume a fixed sampling rate
+                timestamps = np.arange(len(pos_x)) * 0.1  # assume 100ms
             
-            # 去除无效值
+            # Filter invalid values
             valid_mask = ~(np.isnan(pos_x) | np.isnan(pos_z))
             pos_x = pos_x[valid_mask]
             pos_z = pos_z[valid_mask]
@@ -98,39 +105,39 @@ class MetricDAnalyzer:
                 print(f"Warning: Insufficient valid position data in {csv_file}")
                 return self._empty_distance_data()
             
-            # 计算累积路径长度
+            # Cumulative path length
             path_segments = []
             cumulative_distance = 0.0
-            cumulative_distances = [0.0]  # 起始点距离为0
+            cumulative_distances = [0.0]  # distance at start is 0
             
             for i in range(len(pos_x) - 1):
                 x1, z1 = pos_x[i], pos_z[i]
                 x2, z2 = pos_x[i + 1], pos_z[i + 1]
                 
-                # 计算欧几里得距离
+                # Euclidean segment distance
                 segment_distance = np.sqrt((x2 - x1)**2 + (z2 - z1)**2)
                 path_segments.append(segment_distance)
                 cumulative_distance += segment_distance
                 cumulative_distances.append(cumulative_distance)
             
-            # 计算时间相关的指标
+            # Time-related metrics
             total_time = float(timestamps[-1] - timestamps[0]) if len(timestamps) > 1 else 0.0
             
-            # 计算平均速度
+            # Average speed
             avg_speed = cumulative_distance / total_time if total_time > 0 else 0.0
             
-            # 计算移动时间（排除静止时间）
-            movement_threshold = 0.01  # 1cm/s的阈值
-            movement_segments = [seg for seg in path_segments if seg > movement_threshold * 0.1]  # 假设0.1s间隔
-            movement_time = len(movement_segments) * 0.1  # 假设0.1s采样率
+            # Movement time (exclude near-stationary segments)
+            movement_threshold = 0.01  # m/s
+            movement_segments = [seg for seg in path_segments if seg > movement_threshold * 0.1]  # assume 0.1s
+            movement_time = len(movement_segments) * 0.1  # assume 0.1s
             
-            # 计算有效移动速度
+            # Effective speed
             effective_speed = cumulative_distance / movement_time if movement_time > 0 else 0.0
             
-            # 计算直线距离（起点到终点）
+            # Straight-line distance
             straight_line_distance = np.sqrt((pos_x[-1] - pos_x[0])**2 + (pos_z[-1] - pos_z[0])**2)
             
-            # 计算路径效率（直线距离/实际路径长度）
+            # Path efficiency (straight/actual)
             path_efficiency = straight_line_distance / cumulative_distance if cumulative_distance > 0 else 0.0
             
             return {
@@ -154,13 +161,13 @@ class MetricDAnalyzer:
     
     def compute_path_distance_from_trajectory(self, traj_file: Path) -> dict:
         """
-        从轨迹JSON文件中计算路径距离
+        Compute traveled distance from a trajectory JSON file.
         
         Args:
-            traj_file: 轨迹JSON文件路径
+            traj_file: Trajectory JSON file path
             
         Returns:
-            Dict包含距离统计信息
+            Dict with distance statistics
         """
         try:
             with open(traj_file, 'r') as f:
@@ -175,7 +182,7 @@ class MetricDAnalyzer:
                 print(f"Warning: Insufficient trajectory points in {traj_file}")
                 return self._empty_distance_data()
             
-            # 提取位置和时间信息
+            # Extract positions and timestamps
             positions = []
             timestamps = []
             
@@ -184,7 +191,7 @@ class MetricDAnalyzer:
                 positions.append((pos['x'], pos['z']))
                 timestamps.append(point['time'])
             
-            # 计算累积路径长度
+            # Cumulative path length
             path_segments = []
             cumulative_distance = 0.0
             
@@ -196,16 +203,16 @@ class MetricDAnalyzer:
                 path_segments.append(segment_distance)
                 cumulative_distance += segment_distance
             
-            # 计算时间相关指标
+            # Time-related metrics
             total_time = float(timestamps[-1] - timestamps[0]) if len(timestamps) > 1 else 0.0
             avg_speed = cumulative_distance / total_time if total_time > 0 else 0.0
             
-            # 计算直线距离
+            # Straight-line distance
             start_pos = positions[0]
             end_pos = positions[-1]
             straight_line_distance = np.sqrt((end_pos[0] - start_pos[0])**2 + (end_pos[1] - start_pos[1])**2)
             
-            # 计算路径效率
+            # Path efficiency
             path_efficiency = straight_line_distance / cumulative_distance if cumulative_distance > 0 else 0.0
             
             return {
@@ -213,7 +220,7 @@ class MetricDAnalyzer:
                 'straight_line_distance': float(straight_line_distance),
                 'path_efficiency': float(path_efficiency),
                 'total_time': float(total_time),
-                'movement_time': float(total_time),  # 假设轨迹数据中都是移动时间
+                'movement_time': float(total_time),  # assume all points are moving time
                 'avg_speed': float(avg_speed),
                 'effective_speed': float(avg_speed),
                 'num_segments': len(path_segments),
@@ -228,7 +235,7 @@ class MetricDAnalyzer:
             return self._empty_distance_data()
     
     def _empty_distance_data(self) -> dict:
-        """返回空的距离数据"""
+        """Return an empty distance-data record."""
         return {
             'total_distance': 0.0,
             'straight_line_distance': 0.0,
@@ -247,34 +254,34 @@ class MetricDAnalyzer:
     
     def analyze_single_trial(self, participant_id: str, trial_id: str, authority: str) -> dict:
         """
-        分析单个试验的行驶距离
+        Analyze distance traveled for a single trial.
         
         Args:
-            participant_id: 参与者ID (e.g., 'T_001')
-            trial_id: 试验ID (e.g., '01')
-            authority: 权限级别 (e.g., '0.3')
+            participant_id: Participant ID (e.g., 'T_001')
+            trial_id: Trial ID (e.g., '01')
+            authority: Authority level (e.g., '0.3')
             
         Returns:
-            Dict包含试验信息和距离数据
+            Dict containing trial info and distance data
         """
         trial_path = self.log_base_path / participant_id / trial_id / authority
         
-        # 优先使用CSV文件，因为它包含更详细的时间序列数据
+        # Prefer CSV because it typically contains richer time-series data
         csv_files = list(trial_path.glob('log_*.csv'))
         trajectory_files = list(trial_path.glob('trajectory_*.json'))
         
         distance_data = self._empty_distance_data()
         
         if csv_files:
-            # 使用CSV文件计算距离
+            # Compute distance using the CSV file
             distance_data = self.compute_path_distance_from_csv(csv_files[0])
         elif trajectory_files:
-            # 回退到使用轨迹文件
+            # Fallback to trajectory file
             distance_data = self.compute_path_distance_from_trajectory(trajectory_files[0])
         else:
             print(f"Warning: No trajectory data found in {trial_path}")
         
-        # 组合试验信息
+        # Combine trial info
         result = {
             'participant': participant_id,
             'trial': trial_id,
@@ -286,14 +293,14 @@ class MetricDAnalyzer:
     
     def collect_all_data(self) -> pd.DataFrame:
         """
-        收集所有试验的行驶距离数据
+        Collect distance data for all trials.
         
         Returns:
-            包含所有数据的DataFrame
+            DataFrame containing all data
         """
         all_results = []
         
-        # 遍历所有参与者
+        # Iterate all participants
         for participant_dir in sorted(self.log_base_path.glob('T_*')):
             if not participant_dir.is_dir():
                 continue
@@ -301,7 +308,7 @@ class MetricDAnalyzer:
             participant_id = participant_dir.name
             print(f"Processing participant: {participant_id}")
             
-            # 遍历所有试验
+            # Iterate all trials
             for trial_dir in sorted(participant_dir.glob('[0-9]*')):
                 if not trial_dir.is_dir():
                     continue
@@ -309,7 +316,7 @@ class MetricDAnalyzer:
                 trial_id = trial_dir.name
                 print(f"  Processing trial: {trial_id}")
                 
-                # 遍历所有权限级别
+                # Iterate all authority levels
                 for authority_dir in sorted(trial_dir.glob('0.*')):
                     if not authority_dir.is_dir():
                         continue
@@ -317,7 +324,7 @@ class MetricDAnalyzer:
                     authority = authority_dir.name
                     print(f"    Processing authority: {authority}")
                     
-                    # 分析单个试验
+                    # Analyze single trial
                     result = self.analyze_single_trial(participant_id, trial_id, authority)
                     all_results.append(result)
         
@@ -325,25 +332,25 @@ class MetricDAnalyzer:
     
     def perform_within_subject_analysis(self, df: pd.DataFrame) -> dict:
         """
-        执行被试内分析
+        Perform within-subject analysis.
         
         Args:
-            df: 包含所有数据的DataFrame
+            df: DataFrame containing all data
             
         Returns:
-            分析结果字典
+            Results dict
         """
         results = {}
         
-        # 为每位受试者分别分析
+        # Analyze each participant separately
         for participant in df['participant'].unique():
             participant_data = df[df['participant'] == participant]
             
-            # 按Authority分组
+            # Group by authority
             authority_03 = participant_data[participant_data['authority'] == 0.3]
             authority_07 = participant_data[participant_data['authority'] == 0.7]
             
-            # 计算各指标的平均值
+            # Compute means
             results[participant] = {
                 'authority_0.3': {
                     'total_distance_mean': authority_03['total_distance'].mean(),
@@ -363,7 +370,7 @@ class MetricDAnalyzer:
                 }
             }
             
-            # 计算差异
+            # Differences
             distance_diff = (authority_07['total_distance'].mean() - 
                            authority_03['total_distance'].mean())
             speed_diff = (authority_07['avg_speed'].mean() - 
@@ -381,13 +388,13 @@ class MetricDAnalyzer:
     
     def create_summary_table(self, within_subject_results: dict) -> pd.DataFrame:
         """
-        创建汇总表格
+        Create a summary table.
         
         Args:
-            within_subject_results: 被试内分析结果
+            within_subject_results: Within-subject results
             
         Returns:
-            汇总表格DataFrame
+            Summary table DataFrame
         """
         table_data = []
         
@@ -420,20 +427,20 @@ class MetricDAnalyzer:
     
     def create_visualizations(self, df: pd.DataFrame):
         """
-        创建可视化图表
+        Create visualization plots.
         
         Args:
-            df: 包含所有数据的DataFrame
+            df: DataFrame containing all data
         """
-        # 设置图形样式
+        # Plot style
         plt.style.use('default')
         sns.set_palette("Set2")
         
-        # 为authority值创建用户友好的标签
+        # User-friendly labels
         df_vis = df.copy()
         df_vis['authority_label'] = df_vis['authority'].map({0.3: 'Low User Authority', 0.7: 'High User Authority'})
         
-        # 创建图形布局
+        # Figure layout
         fig, axes = plt.subplots(2, 2, figsize=(14, 10))
         fig.suptitle('Metric D: Distance Traveled Analysis - Within-Subject Comparison', 
                     fontsize=16, fontweight='bold')
@@ -462,8 +469,7 @@ class MetricDAnalyzer:
         axes[1,0].set_ylabel('Path Efficiency (straight/actual)')
         axes[1,0].legend(title='Authority Level')
         
-        # 4. 个体差异图 - 总距离比较
-        # 计算每个参与者在两种authority下的平均总距离
+        # 4. Participant comparison: mean total distance by authority
         participant_means = df.groupby(['participant', 'authority'])['total_distance'].mean().unstack()
         
         x_pos = np.arange(len(participant_means.index))
@@ -482,7 +488,7 @@ class MetricDAnalyzer:
         axes[1,1].legend()
         axes[1,1].grid(axis='y', alpha=0.3)
         
-        # 添加数值标签
+        # Value labels
         for bars in [bars1, bars2]:
             for bar in bars:
                 height = bar.get_height()
@@ -494,7 +500,7 @@ class MetricDAnalyzer:
         
         plt.tight_layout()
         
-        # 保存图表
+        # Save plot
         output_file = self.output_path / "metric_D_distance_analysis.png"
         plt.savefig(output_file, dpi=300, bbox_inches='tight')
         print(f"Visualization saved to: {output_file}")
@@ -502,13 +508,13 @@ class MetricDAnalyzer:
     
     def generate_latex_table(self, summary_df: pd.DataFrame) -> str:
         """
-        生成LaTeX表格
+        Generate a LaTeX table.
         
         Args:
-            summary_df: 汇总数据DataFrame
+            summary_df: Summary DataFrame
             
         Returns:
-            LaTeX表格字符串
+            LaTeX table string
         """
         latex_table = """
 \\begin{table}[h]
@@ -540,13 +546,13 @@ Participant & Authority & Total & Avg Speed & Effective & Path & Total \\\\
     
     def run_complete_analysis(self):
         """
-        运行完整的Metric D分析
+        Run the complete Metric D analysis.
         """
         print("=" * 60)
         print("METRIC D: DISTANCE TRAVELED ANALYSIS")
         print("=" * 60)
         
-        # 1. 收集数据
+        # 1. Collect data
         print("\n1. Collecting distance data from all trials...")
         df = self.collect_all_data()
         
@@ -554,17 +560,17 @@ Participant & Authority & Total & Avg Speed & Effective & Path & Total \\\\
             print("No data found. Please check the log file paths.")
             return
         
-        # 保存原始数据
+        # Save raw data
         raw_data_file = self.output_path / "metric_D_raw_data.csv"
         df.to_csv(raw_data_file, index=False)
         print(f"Raw data saved to: {raw_data_file}")
         
-        # 2. 显示原始数据
+        # 2. Print raw data
         print("\n2. Raw Data:")
         print("-" * 40)
         print(df.to_string(index=False))
         
-        # 3. 被试内分析
+        # 3. Within-subject analysis
         print("\n3. Within-Subject Analysis:")
         print("-" * 40)
         within_subject_results = self.perform_within_subject_analysis(df)
@@ -579,39 +585,33 @@ Participant & Authority & Total & Avg Speed & Effective & Path & Total \\\\
             direction = "farther" if distance_diff > 0 else "shorter"
             print(f"  High authority traveled {abs(distance_diff):.2f}m {direction}")
         
-        # 4. 创建汇总表格
+        # 4. Summary table
         print("\n4. Summary Table:")
         print("-" * 40)
         summary_df = self.create_summary_table(within_subject_results)
         print(summary_df.to_string(index=False))
         
-        # 保存汇总表格
+        # Save summary table
         summary_file = self.output_path / "metric_D_summary_table.csv"
         summary_df.to_csv(summary_file, index=False)
         print(f"Summary table saved to: {summary_file}")
         
-        # 5. 生成可视化
+        # 5. Visualizations
         print("\n5. Generating visualizations...")
         self.create_visualizations(df)
         
-        # 6. 生成LaTeX表格
-        print("\n6. LaTeX Table:")
-        print("-" * 40)
-        latex_table = self.generate_latex_table(summary_df)
-        print(latex_table)
+        # 6. LaTeX table
+        # print("\n6. LaTeX Table:")
+        # print("-" * 40)
+        # latex_table = self.generate_latex_table(summary_df)
+        # print(latex_table)
         
-        # 保存LaTeX表格
-        latex_file = self.output_path / "metric_D_latex_table.tex"
-        with open(latex_file, 'w', encoding='utf-8') as f:
-            f.write(latex_table)
-        print(f"LaTeX table saved to: {latex_file}")
-        
-        # 7. 分析总结
+        # 7. Summary
         print("\n7. Analysis Summary:")
         print("-" * 40)
         print(f"• Total trials analyzed: {len(df)}")
         
-        # 计算整体距离统计
+        # Overall distance stats
         auth_03_distance = df[df['authority'] == 0.3]['total_distance'].mean()
         auth_07_distance = df[df['authority'] == 0.7]['total_distance'].mean()
         
@@ -626,7 +626,7 @@ Participant & Authority & Total & Avg Speed & Effective & Path & Total \\\\
             decrease = ((auth_03_distance - auth_07_distance) / auth_03_distance) * 100
             print(f"  - High authority shows {decrease:.1f}% less distance")
         
-        # 计算整体速度统计
+        # Overall speed stats
         auth_03_speed = df[df['authority'] == 0.3]['avg_speed'].mean()
         auth_07_speed = df[df['authority'] == 0.7]['avg_speed'].mean()
         
@@ -638,12 +638,11 @@ Participant & Authority & Total & Avg Speed & Effective & Path & Total \\\\
         print(f"• Results saved in: {self.output_path}")
 
 def main():
-    """主函数"""
-    # 设置路径
-    log_path = r"d:\UnityProject\wheelchair_sim\Assets\Logs\0820_use_this"
-    output_path = Path(__file__).parent
+    """Entry point."""
+    log_path = LOG_PATH
+    output_path = OUTPUT_PATH
     
-    # 创建分析器并运行分析
+    # Create analyzer and run
     analyzer = MetricDAnalyzer(log_path, output_path)
     analyzer.run_complete_analysis()
 

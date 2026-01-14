@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
 Metric A: Number of Collisions Analysis
-碰撞次数分析 - 被试内主分析
+Collision count analysis (within-subject).
 
-重点分析：
-1. 同一个受试者在两种Authority下的碰撞次数和碰撞率变化
-2. 受试者内部比较（within-subject analysis）
-3. 分别分析两位受试者的表现
+Focus:
+1. Compare collision counts and rates for the same participant under two authority levels.
+2. Within-subject comparison.
+3. Compare performance across participants.
 """
 
 import os
@@ -18,14 +18,24 @@ from pathlib import Path
 import warnings
 warnings.filterwarnings('ignore')
 
+# =============================
+# User-configurable settings
+# =============================
+# Root directory containing participant logs.
+LOG_PATH = r"d:\UnityProject\wheelchair_sim\Assets\Logs\0820_use_this"
+# Output directory for figures/CSVs.
+OUTPUT_PATH = Path(__file__).parent
+# LaTeX table output is disabled by default.
+ENABLE_LATEX_OUTPUT = False
+
 class MetricAAnalyzer:
     def __init__(self, log_base_path: str, output_path: str = None):
         """
-        初始化Metric A分析器
+        Initialize the Metric A analyzer.
         
         Args:
-            log_base_path: 日志文件根目录路径
-            output_path: 输出文件夹路径，默认为当前脚本目录
+            log_base_path: Root directory containing log files.
+            output_path: Output directory (defaults to this script directory).
         """
         self.log_base_path = Path(log_base_path)
         self.output_path = Path(output_path) if output_path else Path(__file__).parent
@@ -33,23 +43,23 @@ class MetricAAnalyzer:
         
     def extract_collision_data_from_csv(self, csv_file: Path) -> dict:
         """
-        从CSV文件中提取碰撞数据
+        Extract collision statistics from a CSV log.
         
         Args:
-            csv_file: CSV日志文件路径
+            csv_file: Path to the CSV log.
             
         Returns:
-            Dict包含碰撞统计信息
+            Dict containing collision statistics.
         """
         try:
             df = pd.read_csv(csv_file)
             
-            # 检查列名
+            # Validate required columns
             if 'collision_flag' not in df.columns or 'collision_count' not in df.columns:
                 print(f"Warning: No collision columns found in {csv_file}")
                 return self._empty_collision_data()
             
-            # 处理重复列名的情况
+            # Handle duplicated column names (pandas may return a DataFrame)
             if isinstance(df['collision_flag'], pd.DataFrame):
                 collision_flags = df['collision_flag'].iloc[:, 0]
             else:
@@ -60,20 +70,20 @@ class MetricAAnalyzer:
             else:
                 collision_counts = df['collision_count']
             
-            # 计算碰撞指标
+            # Compute collision metrics
             total_collisions = int(collision_counts.max()) if len(collision_counts) > 0 else 0
             collision_frames = int((collision_flags > 0).sum())
             
-            # 计算试验时长
+            # Compute trial duration
             if 'timestamp' in df.columns:
                 duration = float(df['timestamp'].max() - df['timestamp'].min())
             else:
-                duration = float(len(df) * 0.1)  # 假设100ms采样率
+                duration = float(len(df) * 0.1)  # Assumes 100 ms sampling
             
-            # 计算碰撞率 (collisions per second)
+            # Collision rate (collisions per second)
             collision_rate = float(total_collisions / duration) if duration > 0 else 0.0
             
-            # 计算碰撞帧率 (collision frames per total frames)
+            # Collision frame rate (collision frames per total frames)
             collision_frame_rate = float(collision_frames / len(df)) if len(df) > 0 else 0.0
             
             return {
@@ -91,7 +101,7 @@ class MetricAAnalyzer:
             return self._empty_collision_data()
     
     def _empty_collision_data(self) -> dict:
-        """返回空的碰撞数据"""
+        """Return an empty collision-statistics dict."""
         return {
             'total_collisions': 0,
             'collision_frames': 0,
@@ -104,19 +114,19 @@ class MetricAAnalyzer:
     
     def analyze_single_trial(self, participant_id: str, trial_id: str, authority: str) -> dict:
         """
-        分析单个试验的碰撞数据
+        Analyze collision data for a single trial.
         
         Args:
-            participant_id: 参与者ID (e.g., 'T_001')
-            trial_id: 试验ID (e.g., '01')
-            authority: 权限级别 (e.g., '0.3')
+            participant_id: Participant ID (e.g., 'T_001')
+            trial_id: Trial ID (e.g., '01')
+            authority: Authority level (e.g., '0.3')
             
         Returns:
-            Dict包含试验信息和碰撞数据
+            Dict containing trial metadata and collision metrics.
         """
         trial_path = self.log_base_path / participant_id / trial_id / authority
         
-        # 查找CSV文件
+        # Find CSV log
         csv_files = list(trial_path.glob('log_*.csv'))
         if not csv_files:
             print(f"Warning: No CSV file found in {trial_path}")
@@ -307,7 +317,7 @@ class MetricAAnalyzer:
         
         plt.tight_layout()
         
-        # 保存图表
+        # Save figure
         output_file = self.output_path / "metric_A_collision_analysis.png"
         plt.savefig(output_file, dpi=300, bbox_inches='tight')
         print(f"Visualization saved to: {output_file}")
@@ -315,13 +325,13 @@ class MetricAAnalyzer:
     
     def generate_latex_table(self, summary_df: pd.DataFrame) -> str:
         """
-        生成LaTeX表格
+        Generate a LaTeX table.
         
         Args:
-            summary_df: 汇总数据DataFrame
+            summary_df: Summary dataframe.
             
         Returns:
-            LaTeX表格字符串
+            LaTeX table as a string.
         """
         latex_table = """
 \\begin{table}[h]
@@ -350,13 +360,13 @@ Participant & Authority & Total & Mean per & Collision Rate & Frame Rate \\\\
     
     def run_complete_analysis(self):
         """
-        运行完整的Metric A分析
+        Run the complete Metric A analysis.
         """
         print("=" * 60)
         print("METRIC A: COLLISION ANALYSIS")
         print("=" * 60)
         
-        # 1. 收集数据
+        # 1) Collect data
         print("\n1. Collecting collision data from all trials...")
         df = self.collect_all_data()
         
@@ -364,17 +374,17 @@ Participant & Authority & Total & Mean per & Collision Rate & Frame Rate \\\\
             print("No data found. Please check the log file paths.")
             return
         
-        # 保存原始数据
+        # Save raw data
         raw_data_file = self.output_path / "metric_A_raw_data.csv"
         df.to_csv(raw_data_file, index=False)
         print(f"Raw data saved to: {raw_data_file}")
         
-        # 2. 显示原始数据
+        # 2) Show raw data
         print("\n2. Raw Data:")
         print("-" * 40)
         print(df.to_string(index=False))
         
-        # 3. 被试内分析
+        # 3) Within-subject analysis
         print("\n3. Within-Subject Analysis:")
         print("-" * 40)
         within_subject_results = self.perform_within_subject_analysis(df)
@@ -387,34 +397,35 @@ Participant & Authority & Total & Mean per & Collision Rate & Frame Rate \\\\
                   f"({data['authority_0.7']['total_collisions_mean']:.2f} per trial)")
             print(f"  Difference: {data['differences']['collision_count_diff']:+.2f} collisions per trial")
         
-        # 4. 创建汇总表格
+        # 4) Summary table
         print("\n4. Summary Table:")
         print("-" * 40)
         summary_df = self.create_summary_table(within_subject_results)
         print(summary_df.to_string(index=False))
         
-        # 保存汇总表格
+        # Save summary table
         summary_file = self.output_path / "metric_A_summary_table.csv"
         summary_df.to_csv(summary_file, index=False)
         print(f"Summary table saved to: {summary_file}")
         
-        # 5. 生成可视化
+        # 5) Visualizations
         print("\n5. Generating visualizations...")
         self.create_visualizations(df)
+
+        # 6) LaTeX table output (disabled)
+        # If you want to re-enable it, set ENABLE_LATEX_OUTPUT=True and uncomment below.
+        # if ENABLE_LATEX_OUTPUT:
+        #     print("\n6. LaTeX Table:")
+        #     print("-" * 40)
+        #     latex_table = self.generate_latex_table(summary_df)
+        #     print(latex_table)
+        #
+        #     latex_file = self.output_path / "metric_A_latex_table.tex"
+        #     with open(latex_file, 'w', encoding='utf-8') as f:
+        #         f.write(latex_table)
+        #     print(f"LaTeX table saved to: {latex_file}")
         
-        # 6. 生成LaTeX表格
-        print("\n6. LaTeX Table:")
-        print("-" * 40)
-        latex_table = self.generate_latex_table(summary_df)
-        print(latex_table)
-        
-        # 保存LaTeX表格
-        latex_file = self.output_path / "metric_A_latex_table.tex"
-        with open(latex_file, 'w', encoding='utf-8') as f:
-            f.write(latex_table)
-        print(f"LaTeX table saved to: {latex_file}")
-        
-        # 7. 分析总结
+        # 7) Summary
         print("\n7. Analysis Summary:")
         print("-" * 40)
         total_collisions = df['total_collisions'].sum()
@@ -433,13 +444,8 @@ Participant & Authority & Total & Mean per & Collision Rate & Frame Rate \\\\
         print(f"• Results saved in: {self.output_path}")
 
 def main():
-    """主函数"""
-    # 设置路径
-    log_path = r"d:\UnityProject\wheelchair_sim\Assets\Logs\0820_use_this"
-    output_path = Path(__file__).parent
-    
-    # 创建分析器并运行分析
-    analyzer = MetricAAnalyzer(log_path, output_path)
+    """Entry point."""
+    analyzer = MetricAAnalyzer(LOG_PATH, OUTPUT_PATH)
     analyzer.run_complete_analysis()
 
 if __name__ == "__main__":

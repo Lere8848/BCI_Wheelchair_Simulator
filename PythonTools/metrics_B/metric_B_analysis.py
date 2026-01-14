@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
 Metric B: Number of Danger-Stop Triggers Analysis
-危险停止触发次数分析 - 被试内主分析
+Danger-stop trigger count analysis (within-subject).
 
-重点分析：
-1. 同一个受试者在两种Authority下的danger-stop触发次数变化
-2. 受试者内部比较（within-subject analysis）
-3. 分别分析两位受试者的表现
-4. 从ROS2日志中提取early stop和danger stop事件
+Focus:
+1. Compare danger-stop counts for the same participant under two authority levels.
+2. Within-subject comparison.
+3. Compare performance across participants.
+4. Extract early-stop and danger-stop events from ROS2 logs.
 """
 
 import os
@@ -20,14 +20,21 @@ import re
 import warnings
 warnings.filterwarnings('ignore')
 
+# =============================
+# User-configurable settings
+# =============================
+LOG_PATH = r"d:\UnityProject\wheelchair_sim\Assets\Logs\0820_use_this"
+OUTPUT_PATH = Path(__file__).parent
+ENABLE_LATEX_OUTPUT = False
+
 class MetricBAnalyzer:
     def __init__(self, log_base_path: str, output_path: str = None):
         """
-        初始化Metric B分析器
+        Initialize the Metric B analyzer.
         
         Args:
-            log_base_path: 日志文件根目录路径
-            output_path: 输出文件夹路径，默认为当前脚本目录
+            log_base_path: Root directory containing log files.
+            output_path: Output directory (defaults to this script directory).
         """
         self.log_base_path = Path(log_base_path)
         self.output_path = Path(output_path) if output_path else Path(__file__).parent
@@ -35,32 +42,32 @@ class MetricBAnalyzer:
         
     def extract_danger_stops_from_log(self, log_file: Path) -> dict:
         """
-        从ROS2日志文件中提取危险停止数据
+        Extract safety-stop events from a ROS2 log file.
         
         Args:
-            log_file: ROS2日志文件路径
+            log_file: Path to the ROS2 log file.
             
         Returns:
-            Dict包含危险停止统计信息
+            Dict containing extracted event counts.
         """
         try:
             with open(log_file, 'r', encoding='utf-8') as f:
                 content = f.read()
             
-            # 搜索关键词
+            # Keyword matches
             early_stops = len(re.findall(r'early\s*stop', content, re.IGNORECASE))
             danger_stops = len(re.findall(r'danger\s*stop', content, re.IGNORECASE))
             
-            # 搜索其他可能的安全相关事件
+            # Additional safety-related events
             safety_warnings = len(re.findall(r'safety.*warning', content, re.IGNORECASE))
             emergency_stops = len(re.findall(r'emergency.*stop', content, re.IGNORECASE))
             collision_warnings = len(re.findall(r'collision.*warning', content, re.IGNORECASE))
             
-            # 总的安全停止事件
+            # Aggregate counts
             total_safety_stops = early_stops + danger_stops + emergency_stops
             total_safety_events = total_safety_stops + safety_warnings + collision_warnings
             
-            # 计算日志文件的行数作为活动指标
+            # Log line count as a proxy for activity
             log_lines = len(content.split('\n'))
             
             return {
@@ -80,7 +87,7 @@ class MetricBAnalyzer:
             return self._empty_safety_data()
     
     def _empty_safety_data(self) -> dict:
-        """返回空的安全数据"""
+        """Return an empty safety-statistics dict."""
         return {
             'early_stops': 0,
             'danger_stops': 0,
@@ -95,26 +102,26 @@ class MetricBAnalyzer:
     
     def get_trial_duration_from_csv(self, csv_file: Path) -> float:
         """
-        从CSV文件获取试验时长
+        Estimate trial duration from the CSV log.
         
         Args:
-            csv_file: CSV文件路径
+            csv_file: Path to the CSV log.
             
         Returns:
-            试验时长（秒）
+            Trial duration (seconds).
         """
         try:
             df = pd.read_csv(csv_file)
             if 'timestamp' in df.columns:
                 return float(df['timestamp'].max() - df['timestamp'].min())
             else:
-                return float(len(df) * 0.1)  # 假设100ms采样率
+                return float(len(df) * 0.1)  # Assumes 100 ms sampling
         except:
             return 0.0
     
     def analyze_single_trial(self, participant_id: str, trial_id: str, authority: str) -> dict:
         """
-        分析单个试验的危险停止数据
+        Analyze safety-stop events for a single trial.
         
         Args:
             participant_id: 参与者ID (e.g., 'T_001')
@@ -376,13 +383,13 @@ class MetricBAnalyzer:
     
     def generate_latex_table(self, summary_df: pd.DataFrame) -> str:
         """
-        生成LaTeX表格
+        Generate a LaTeX table.
         
         Args:
-            summary_df: 汇总数据DataFrame
+            summary_df: Summary dataframe.
             
         Returns:
-            LaTeX表格字符串
+            LaTeX table as a string.
         """
         latex_table = """
 \\begin{table}[h]
@@ -412,13 +419,13 @@ Participant & Authority & Early & Danger & Total Safety & Mean per & Rate per \\
     
     def run_complete_analysis(self):
         """
-        运行完整的Metric B分析
+        Run the complete Metric B analysis.
         """
         print("=" * 60)
         print("METRIC B: DANGER-STOP TRIGGERS ANALYSIS")
         print("=" * 60)
         
-        # 1. 收集数据
+        # 1) Collect data
         print("\n1. Collecting danger-stop data from all trials...")
         df = self.collect_all_data()
         
@@ -426,18 +433,18 @@ Participant & Authority & Early & Danger & Total Safety & Mean per & Rate per \\
             print("No data found. Please check the log file paths.")
             return
         
-        # 保存原始数据
+        # Save raw data
         raw_data_file = self.output_path / "metric_B_raw_data.csv"
         df.to_csv(raw_data_file, index=False)
         print(f"Raw data saved to: {raw_data_file}")
         
-        # 2. 显示原始数据
+        # 2) Show raw data
         print("\n2. Raw Data:")
         print("-" * 40)
         print(df[['participant', 'trial', 'authority', 'early_stops', 'danger_stops', 
                  'total_safety_stops', 'total_safety_events', 'safety_stops_rate_per_second']].to_string(index=False))
         
-        # 3. 被试内分析
+        # 3) Within-subject analysis
         print("\n3. Within-Subject Analysis:")
         print("-" * 40)
         within_subject_results = self.perform_within_subject_analysis(df)
@@ -451,34 +458,35 @@ Participant & Authority & Early & Danger & Total Safety & Mean per & Rate per \\
             print(f"  Difference: {data['differences']['safety_stops_diff']:+.2f} safety stops per trial")
             print(f"  Rate difference: {data['differences']['safety_rate_diff']:+.4f} stops per second")
         
-        # 4. 创建汇总表格
+        # 4) Summary table
         print("\n4. Summary Table:")
         print("-" * 40)
         summary_df = self.create_summary_table(within_subject_results)
         print(summary_df.to_string(index=False))
         
-        # 保存汇总表格
+        # Save summary table
         summary_file = self.output_path / "metric_B_summary_table.csv"
         summary_df.to_csv(summary_file, index=False)
         print(f"Summary table saved to: {summary_file}")
         
-        # 5. 生成可视化
+        # 5) Visualizations
         print("\n5. Generating visualizations...")
         self.create_visualizations(df)
+
+        # 6) LaTeX table output (disabled)
+        # If you want to re-enable it, set ENABLE_LATEX_OUTPUT=True and uncomment below.
+        # if ENABLE_LATEX_OUTPUT:
+        #     print("\n6. LaTeX Table:")
+        #     print("-" * 40)
+        #     latex_table = self.generate_latex_table(summary_df)
+        #     print(latex_table)
+        #
+        #     latex_file = self.output_path / "metric_B_latex_table.tex"
+        #     with open(latex_file, 'w', encoding='utf-8') as f:
+        #         f.write(latex_table)
+        #     print(f"LaTeX table saved to: {latex_file}")
         
-        # 6. 生成LaTeX表格
-        print("\n6. LaTeX Table:")
-        print("-" * 40)
-        latex_table = self.generate_latex_table(summary_df)
-        print(latex_table)
-        
-        # 保存LaTeX表格
-        latex_file = self.output_path / "metric_B_latex_table.tex"
-        with open(latex_file, 'w', encoding='utf-8') as f:
-            f.write(latex_table)
-        print(f"LaTeX table saved to: {latex_file}")
-        
-        # 7. 分析总结
+        # 7) Summary
         print("\n7. Analysis Summary:")
         print("-" * 40)
         total_safety_stops = df['total_safety_stops'].sum()
@@ -500,13 +508,8 @@ Participant & Authority & Early & Danger & Total Safety & Mean per & Rate per \\
         print(f"• Results saved in: {self.output_path}")
 
 def main():
-    """主函数"""
-    # 设置路径
-    log_path = r"d:\UnityProject\wheelchair_sim\Assets\Logs\0820_use_this"
-    output_path = Path(__file__).parent
-    
-    # 创建分析器并运行分析
-    analyzer = MetricBAnalyzer(log_path, output_path)
+    """Entry point."""
+    analyzer = MetricBAnalyzer(LOG_PATH, OUTPUT_PATH)
     analyzer.run_complete_analysis()
 
 if __name__ == "__main__":

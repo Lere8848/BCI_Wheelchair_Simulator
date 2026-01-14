@@ -32,3 +32,10 @@ Assets/Logs/*
 
 # ignore tmp folder in Prefabs
 Assets/Prefabs/tmp/
+
+# ignore png and csv and tex files
+*.png
+*.jpg
+*.jpeg
+*.csv
+*.tex
